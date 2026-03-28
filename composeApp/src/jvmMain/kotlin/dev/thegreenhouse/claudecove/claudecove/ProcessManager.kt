@@ -16,9 +16,9 @@ class ProcessManager(private val scope: CoroutineScope) {
 
     fun start(vararg command: String) {
         process = ProcessBuilder(*command)
-            .directory(File("/Users/oniichan/Documents/Code/Calamari"))
-            .redirectError(ProcessBuilder.Redirect.DISCARD)
-            .start()
+                .directory(File("/Users/oniichan/Documents/Code/Calamari"))
+                .redirectError(ProcessBuilder.Redirect.DISCARD)
+                .start()
 
         writer = process.outputStream.bufferedWriter()
 

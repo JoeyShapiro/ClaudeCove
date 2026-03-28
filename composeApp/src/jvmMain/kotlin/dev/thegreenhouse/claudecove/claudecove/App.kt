@@ -53,15 +53,18 @@ fun App(processManager: ProcessManager) {
 
         Column(
             modifier = Modifier
-                .background(MaterialTheme.colorScheme.primaryContainer)
-                .safeContentPadding()
-                .fillMaxSize(),
+                    .background(MaterialTheme.colorScheme.primaryContainer)
+                    .safeContentPadding()
+                    .fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             LazyColumn(
                 state = listState,
                 modifier = Modifier.weight(1f).fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                contentPadding = PaddingValues(
+                    horizontal = 12.dp,
+                    vertical = 8.dp
+                ),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 reverseLayout = false  // set true if you want newest at bottom like most chat apps
             ) {
@@ -71,28 +74,33 @@ fun App(processManager: ProcessManager) {
             }
             Row(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(8.dp),
+                        .fillMaxWidth()
+                        .padding(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                TextField(prompt,
+                TextField(
+                    prompt,
                     label = { Text("prompt") },
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 150.dp)  // grows from 150dp, expands with content
-                        .onKeyEvent { event ->
-                            // KeyDown for enter is actually
-                            // nativeKeyEvent=InternalKeyEvent(key=Key: Unknown keyCode: 0x0, type=Unknown)
-                            if (event.key == Key.Enter && event.type == KeyEventType.KeyUp &&
-                                !event.isShiftPressed) {
-                                processManager.sendLine(prompt)
-                                messages = messages + Message(text = prompt, fromSelf = true)
-                                prompt = ""
-                                true
-                            } else {
-                                false
-                            }
-                        },
+                            .fillMaxWidth()
+                            .heightIn(min = 150.dp)  // grows from 150dp, expands with content
+                            .onKeyEvent { event ->
+                                // KeyDown for enter is actually
+                                // nativeKeyEvent=InternalKeyEvent(key=Key: Unknown keyCode: 0x0, type=Unknown)
+                                if (event.key == Key.Enter && event.type == KeyEventType.KeyUp &&
+                                    !event.isShiftPressed
+                                ) {
+                                    processManager.sendLine(prompt)
+                                    messages = messages + Message(
+                                        text = prompt,
+                                        fromSelf = true
+                                    )
+                                    prompt = ""
+                                    true
+                                } else {
+                                    false
+                                }
+                            },
                     minLines = 5,   // always shows at least 5 lines tall
                     maxLines = 10,  // caps growth at 10 lines
                     onValueChange = { prompt = it }
@@ -118,18 +126,18 @@ fun ChatBubble(message: Message) {
     ) {
         Box(
             modifier = Modifier
-                .widthIn(max = 280.dp)
-                .background(
-                    color = if (isMe) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.surfaceVariant,
-                    shape = RoundedCornerShape(
-                        topStart = 16.dp,
-                        topEnd = 16.dp,
-                        bottomStart = if (isMe) 16.dp else 4.dp,
-                        bottomEnd = if (isMe) 4.dp else 16.dp,
+                    .widthIn(max = 280.dp)
+                    .background(
+                        color = if (isMe) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(
+                            topStart = 16.dp,
+                            topEnd = 16.dp,
+                            bottomStart = if (isMe) 16.dp else 4.dp,
+                            bottomEnd = if (isMe) 4.dp else 16.dp,
+                        )
                     )
-                )
-                .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
         ) {
             Text(
                 text = message.text,
