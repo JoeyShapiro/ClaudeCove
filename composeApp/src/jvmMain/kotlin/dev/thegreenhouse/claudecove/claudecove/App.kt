@@ -28,17 +28,22 @@ import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import java.util.UUID
 
 @Composable
-@Preview
-fun App() {
+fun App(processManager: ProcessManager) {
     MaterialTheme {
         var prompt by remember { mutableStateOf("") }
         var messages by remember { mutableStateOf(listOf<Message>()) }
         val listState = rememberLazyListState()
+
+        // Collect stdout
+        LaunchedEffect(Unit) {
+            processManager.stdout.collect { line ->
+                messages = messages + Message(text = line, fromSelf = false)
+            }
+        }
 
         LaunchedEffect(messages.size) {
             if (messages.isNotEmpty()) {
@@ -80,6 +85,7 @@ fun App() {
                             // nativeKeyEvent=InternalKeyEvent(key=Key: Unknown keyCode: 0x0, type=Unknown)
                             if (event.key == Key.Enter && event.type == KeyEventType.KeyUp &&
                                 !event.isShiftPressed) {
+                                processManager.sendLine(prompt)
                                 messages = messages + Message(text = prompt, fromSelf = true)
                                 prompt = ""
                                 true
