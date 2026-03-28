@@ -5,6 +5,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
 import java.io.BufferedWriter
+import java.io.File
 
 class ProcessManager(private val scope: CoroutineScope) {
 
@@ -15,7 +16,8 @@ class ProcessManager(private val scope: CoroutineScope) {
 
     fun start(vararg command: String) {
         process = ProcessBuilder(*command)
-            .redirectErrorStream(true) // merge stderr into stdout
+            .directory(File("/Users/oniichan/Documents/Code/Calamari"))
+            .redirectError(ProcessBuilder.Redirect.DISCARD)
             .start()
 
         writer = process.outputStream.bufferedWriter()
