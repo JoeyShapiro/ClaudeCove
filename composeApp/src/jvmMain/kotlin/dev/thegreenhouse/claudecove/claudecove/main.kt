@@ -12,7 +12,10 @@ fun main() = application {
     }
 
     Window(
-        onCloseRequest = ::exitApplication,
+        onCloseRequest = {
+            processManager.stop()
+            exitApplication()
+        },
         title = "Claude Cove",
     ) {
         App(processManager)
