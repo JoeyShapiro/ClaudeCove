@@ -3,6 +3,7 @@ package dev.thegreenhouse.claudecove.claudecove
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -120,30 +121,29 @@ data class Message(
 @Composable
 fun ChatBubble(message: Message) {
     val isMe = message.fromSelf
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = if (isMe) Arrangement.End else Arrangement.Start
-    ) {
-        Box(
-            modifier = Modifier
-                    .widthIn(max = 280.dp)
-                    .background(
-                        color = if (isMe) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.surfaceVariant,
-                        shape = RoundedCornerShape(
-                            topStart = 16.dp,
-                            topEnd = 16.dp,
-                            bottomStart = if (isMe) 16.dp else 4.dp,
-                            bottomEnd = if (isMe) 4.dp else 16.dp,
-                        )
-                    )
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val bubbleMaxWidth = maxWidth * 0.75f  // 75% of available width
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = if (message.fromSelf) Arrangement.End else Arrangement.Start
         ) {
-            Text(
-                text = message.text,
-                color = if (isMe) MaterialTheme.colorScheme.onPrimary
-                else MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Box(
+                modifier = Modifier
+                        .widthIn(max = bubbleMaxWidth)
+                        .background(
+                            color = if (isMe) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.surfaceVariant,
+                            shape = RoundedCornerShape(16.dp)
+                        )
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+            ) {
+                Text(
+                    text = message.text,
+                    color = if (isMe) MaterialTheme.colorScheme.onPrimary
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }
