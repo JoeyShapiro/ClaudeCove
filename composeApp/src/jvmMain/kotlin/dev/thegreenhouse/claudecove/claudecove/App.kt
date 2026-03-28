@@ -22,6 +22,12 @@ import androidx.compose.material3.TextField
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isShiftPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import java.util.UUID
@@ -68,7 +74,19 @@ fun App() {
                     label = { Text("prompt") },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(min = 150.dp),  // grows from 150dp, expands with content
+                        .heightIn(min = 150.dp)  // grows from 150dp, expands with content
+                        .onKeyEvent { event ->
+                            // KeyDown for enter is actually
+                            // nativeKeyEvent=InternalKeyEvent(key=Key: Unknown keyCode: 0x0, type=Unknown)
+                            if (event.key == Key.Enter && event.type == KeyEventType.KeyUp &&
+                                !event.isShiftPressed) {
+                                messages = messages + Message(text = prompt, fromSelf = true)
+                                prompt = ""
+                                true
+                            } else {
+                                false
+                            }
+                        },
                     minLines = 5,   // always shows at least 5 lines tall
                     maxLines = 10,  // caps growth at 10 lines
                     onValueChange = { prompt = it }
