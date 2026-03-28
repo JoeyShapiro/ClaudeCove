@@ -1,6 +1,9 @@
 package dev.thegreenhouse.claudecove.claudecove
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -17,95 +20,110 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.LocalTextSelectionColors
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import java.util.UUID
 
 @Composable
 fun App(processManager: ProcessManager) {
+    val selectionColors = TextSelectionColors(
+        handleColor = MaterialTheme.colorScheme.inversePrimary,
+        backgroundColor = MaterialTheme.colorScheme.inversePrimary.copy(alpha = 0.4f)
+    )
+
     MaterialTheme {
-        var prompt by remember { mutableStateOf("") }
-        var messages by remember { mutableStateOf(listOf<Message>()) }
-        val listState = rememberLazyListState()
+        CompositionLocalProvider(LocalTextSelectionColors provides selectionColors) {
+            var prompt by remember { mutableStateOf("") }
+            var messages by remember { mutableStateOf(listOf<Message>()) }
+            val listState = rememberLazyListState()
 
-        // Collect stdout
-        LaunchedEffect(Unit) {
-            processManager.stdout.collect { line ->
-                messages = messages + Message(text = line, fromSelf = false)
-            }
-        }
-
-        LaunchedEffect(messages.size) {
-            if (messages.isNotEmpty()) {
-                listState.animateScrollToItem(messages.lastIndex)
-            }
-        }
-
-        Column(
-            modifier = Modifier
-                    .background(MaterialTheme.colorScheme.primaryContainer)
-                    .safeContentPadding()
-                    .fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.weight(1f).fillMaxSize(),
-                contentPadding = PaddingValues(
-                    horizontal = 12.dp,
-                    vertical = 8.dp
-                ),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                reverseLayout = false  // set true if you want newest at bottom like most chat apps
-            ) {
-                items(items = messages) { message ->
-                    ChatBubble(message)
+            // Collect stdout
+            LaunchedEffect(Unit) {
+                processManager.stdout.collect { line ->
+                    messages = messages + Message(text = line, fromSelf = false)
                 }
             }
-            Row(
+
+            LaunchedEffect(messages.size) {
+                if (messages.isNotEmpty()) {
+                    listState.animateScrollToItem(messages.lastIndex)
+                }
+            }
+
+            Column(
                 modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                        .background(MaterialTheme.colorScheme.primaryContainer)
+                        .safeContentPadding()
+                        .fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                TextField(
-                    prompt,
-                    label = { Text("prompt") },
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.weight(1f).fillMaxSize(),
+                    contentPadding = PaddingValues(
+                        horizontal = 12.dp,
+                        vertical = 8.dp
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    reverseLayout = false  // set true if you want newest at bottom like most chat apps
+                ) {
+                    items(items = messages) { message ->
+                        ChatBubble(message)
+                    }
+                }
+                Row(
                     modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(min = 150.dp)  // grows from 150dp, expands with content
-                            .onKeyEvent { event ->
-                                // KeyDown for enter is actually
-                                // nativeKeyEvent=InternalKeyEvent(key=Key: Unknown keyCode: 0x0, type=Unknown)
-                                if (event.key == Key.Enter && event.type == KeyEventType.KeyUp &&
-                                    !event.isShiftPressed
-                                ) {
-                                    processManager.sendLine(prompt)
-                                    messages = messages + Message(
-                                        text = prompt,
-                                        fromSelf = true
-                                    )
-                                    prompt = ""
-                                    true
-                                } else {
-                                    false
-                                }
-                            },
-                    minLines = 5,   // always shows at least 5 lines tall
-                    maxLines = 10,  // caps growth at 10 lines
-                    onValueChange = { prompt = it }
-                )
+                            .padding(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextField(
+                        prompt,
+                        label = { Text("prompt") },
+                        modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 150.dp)  // grows from 150dp, expands with content
+                                .onKeyEvent { event ->
+                                    // KeyDown for enter is actually
+                                    // nativeKeyEvent=InternalKeyEvent(key=Key: Unknown keyCode: 0x0, type=Unknown)
+                                    if (event.key == Key.Enter && event.type == KeyEventType.KeyUp &&
+                                        !event.isShiftPressed
+                                    ) {
+                                        processManager.sendLine(prompt)
+                                        messages = messages + Message(
+                                            text = prompt,
+                                            fromSelf = true
+                                        )
+                                        prompt = ""
+                                        true
+                                    } else {
+                                        false
+                                    }
+                                },
+                        minLines = 5,   // always shows at least 5 lines tall
+                        maxLines = 10,  // caps growth at 10 lines
+                        onValueChange = { prompt = it }
+                    )
+                }
             }
         }
     }
@@ -120,9 +138,12 @@ data class Message(
 
 @Composable
 fun ChatBubble(message: Message) {
-    val isMe = message.fromSelf
+    val clipboardManager = LocalClipboardManager.current
+    val interactionSource = remember { MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
+
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-        val bubbleMaxWidth = maxWidth * 0.75f  // 75% of available width
+        val bubbleMaxWidth = maxWidth * 0.75f
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -131,18 +152,42 @@ fun ChatBubble(message: Message) {
             Box(
                 modifier = Modifier
                         .widthIn(max = bubbleMaxWidth)
+                        .hoverable(interactionSource)
                         .background(
-                            color = if (isMe) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.surfaceVariant,
+                            color = MaterialTheme.colorScheme.primary,
                             shape = RoundedCornerShape(16.dp)
                         )
                         .padding(horizontal = 12.dp, vertical = 8.dp)
             ) {
-                Text(
-                    text = message.text,
-                    color = if (isMe) MaterialTheme.colorScheme.onPrimary
-                    else MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Column {
+                        SelectionContainer {
+                            Text(
+                                text = message.text,
+                                color = MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
+
+                    TextButton(
+                        onClick = {
+                            clipboardManager.setText(
+                                AnnotatedString(
+                                    message.text
+                                )
+                            )
+                        },
+                        modifier = Modifier
+                                .align(Alignment.End)
+                                .alpha(if (isHovered) 1f else 0f)
+                    ) {
+                        Text(
+                            "Copy",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onPrimary.copy(
+                                alpha = 0.7f
+                            )
+                        )
+                    }
+                }
             }
         }
     }
