@@ -14,6 +14,9 @@ class ProcessManager(private val scope: CoroutineScope) {
 
     val stdout = MutableSharedFlow<String>()
 
+    // TODO change cwd
+    // TODO add flavor
+    // TODO use streaming
     fun start(vararg command: String) {
         process = ProcessBuilder(*command)
                 .directory(File("/Users/oniichan/Documents/Code/Calamari"))

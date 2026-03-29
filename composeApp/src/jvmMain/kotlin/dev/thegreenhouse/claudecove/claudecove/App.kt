@@ -72,8 +72,8 @@ fun App(processManager: ProcessManager) {
             LaunchedEffect(Unit) {
                 processManager.stdout.collect { line ->
                     try {
-                        val result = json.decodeFromString<Claude.Result>(line)
-                        messages = messages + Message(text = result.result, fromSelf = false)
+                        val response = json.decodeFromString<Claude.Response>(line)
+                        messages = messages + Message(text = response.result, fromSelf = false)
                     } catch (e: SerializationException) {
                         println(e.localizedMessage)
                         println(line)

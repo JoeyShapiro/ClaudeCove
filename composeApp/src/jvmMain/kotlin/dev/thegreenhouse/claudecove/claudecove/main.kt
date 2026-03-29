@@ -7,10 +7,14 @@ import androidx.compose.ui.window.application
 
 fun main() = application {
     val scope = rememberCoroutineScope()
+    // TODO let the program run anyway. but dont start claude
+    val exe = Claude.findClaude()
+            .getOrThrow()
+
     val processManager = remember {
         ProcessManager(scope).also {
             it.start(
-                "/Users/oniichan/.local/bin/claude",
+                exe.absolutePath,
                 "--output-format",
                 "stream-json",
                 "--verbose",

@@ -1,42 +1,11 @@
 package dev.thegreenhouse.claudecove.claudecove
 
 import kotlinx.serialization.Serializable
+import java.io.File
+import java.io.FileNotFoundException
 import java.util.UUID
 
 class Claude {
-    val loadingFlavorText = listOf(
-        // Digging in / excavating
-        "Tunneling deeper",
-        "Breaking through the rock face",
-        "Digging through the seam",
-        "Clearing the rubble",
-        "Descending the shaft",
-        // Prospecting / searching
-        "Surveying the vein",
-        "Panning for an answer",
-        "Reading the strata",
-        "Mapping the cavern",
-        "Tracing the ore",
-        // Atmosphere / ambiance
-        "Listening to the deep",
-        "Following the echo",
-        "Reading the walls",
-        "Letting dust settle",
-        "Sensing the dark",
-        // Tools / process
-        "Shoring up the tunnel",
-        "Checking the timbers",
-        "Calibrating the lantern",
-        "Adjusting the airflow",
-        "Loading the cart",
-        // More poetic/abstract
-        "Finding the vein",
-        "Light in the rock",
-        "Patience of stone",
-        "Sifting through the dark",
-        "The mountain thinks"
-    )
-
     // {"request_id":"dxv71vev7ef","type":"control_request",
     // "request":{"subtype":"generate_session_title","description":"","persist":false}}
     @Serializable
@@ -73,7 +42,7 @@ class Claude {
     data class Content (val type: String, val text: String)
 
     @Serializable
-    data class Result (
+    data class Response (
         val type: String,
         val subtype: String,
         val isError: Boolean,
@@ -89,4 +58,22 @@ class Claude {
         val fastModeState: String,
         val uuid: String,
     )
+
+    companion object {
+        fun findClaude(): Result<File> {
+            // TODO get proper list of locations and add setting for custom
+            val home = File(System.getProperty("user.home"))
+            val file = if (System.getProperty("os.name").lowercase().contains("windows")) {
+                File(System.getenv("APPDATA"), "config.ini")
+            } else {
+                home.resolve(".local/bin/claude")
+            }
+
+            if (!file.exists()) {
+                return Result.failure(FileNotFoundException("File not found: ${file.absolutePath}"))
+            }
+
+            return Result.success(file)
+        }
+    }
 }
