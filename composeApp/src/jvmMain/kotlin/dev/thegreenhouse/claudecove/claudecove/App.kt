@@ -26,6 +26,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.LocalTextSelectionColors
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.text.selection.TextSelectionColors
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
@@ -52,6 +54,12 @@ import kotlinx.serialization.SerializationException
 import java.util.UUID
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNamingStrategy
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import javax.swing.JFileChooser
+import javax.swing.filechooser.FileNameExtensionFilter
+import java.io.File
 
 @OptIn(ExperimentalSerializationApi::class)
 @Composable
@@ -73,6 +81,7 @@ fun App(processManager: ProcessManager) {
             var input by remember { mutableStateOf("") }
             var messages by remember { mutableStateOf(listOf<Message>()) }
             val listState = rememberLazyListState()
+            val scope = rememberCoroutineScope()
 
             // Collect stdout
             LaunchedEffect(Unit) {
@@ -95,8 +104,9 @@ fun App(processManager: ProcessManager) {
             }
 
             // Sidebar + main content row
-            val sidebarItems = listOf("Session 1", "Session 2", "Templates")
+            val sidebarItems = remember { mutableStateListOf("Session 1", "Session 2", "Templates") }
             var activeSidebarItem by remember { mutableStateOf(sidebarItems.first()) }
+            var selectedDirectory by remember { mutableStateOf(File("")) }
 
             Row(
                 modifier = Modifier
@@ -120,17 +130,39 @@ fun App(processManager: ProcessManager) {
                                 style = MaterialTheme.typography.titleMedium,
                                 color = MaterialTheme.colorScheme.onSecondaryContainer,
                                 modifier = Modifier
-                                        .weight(1f).fillMaxSize()
+                                        .weight(1f).fillMaxWidth()
                                         .background(MaterialTheme.colorScheme.secondaryContainer)
                                         .padding(horizontal = 12.dp, vertical = 14.dp)
                             )
                             TextButton(
                                 onClick = {
-                                    println("click")
+                                    scope.launch {
+                                        // TODO create as project with name and stuff
+                                        val folder = openFilePicker(title = "Select Working Directory")
+                                        if (folder != null) {
+                                            selectedDirectory = folder
+                                            sidebarItems.add("$folder")
+                                        }
+                                    }
                                 }
                             ) {
                                 Text(
                                     "Add",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(
+                                        alpha = 0.7f
+                                    )
+                                )
+                            }
+                            TextButton(
+                                // TODO add to projects
+                                onClick = {
+                                    sidebarItems.add("New Chat")
+                                    activeSidebarItem = "New Chat"
+                                }
+                            ) {
+                                Text(
+                                    "Chat",
                                     fontSize = 11.sp,
                                     color = MaterialTheme.colorScheme.onSecondaryContainer.copy(
                                         alpha = 0.7f
@@ -309,4 +341,24 @@ fun ChatBubble(message: Message) {
             }
         }
     }
+}
+
+suspend fun openFilePicker(
+    title: String = "Select a file",
+    filter: FileNameExtensionFilter? = null
+): File? = withContext(Dispatchers.IO) {
+    var result: File? = null
+    val chooser = JFileChooser().apply {
+        dialogTitle = title
+        fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
+        isMultiSelectionEnabled = false
+        filter?.let { fileFilter = it }
+    }
+
+    val returnCode = chooser.showOpenDialog(null)
+    if (returnCode == JFileChooser.APPROVE_OPTION) {
+        result = chooser.selectedFile
+    }
+
+    result
 }
