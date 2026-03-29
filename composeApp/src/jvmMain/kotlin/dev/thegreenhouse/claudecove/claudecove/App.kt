@@ -26,8 +26,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.LocalTextSelectionColors
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.text.selection.TextSelectionColors
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
@@ -104,8 +102,8 @@ fun App(processManager: ProcessManager) {
             }
 
             // Sidebar + main content row
-            val sidebarItems = remember { mutableStateListOf("Session 1", "Session 2", "Templates") }
-            var activeSidebarItem by remember { mutableStateOf(sidebarItems.first()) }
+            var sessions by remember { mutableStateOf(listOf<Session>()) }
+            var currentSession by remember { mutableStateOf("") }
             var selectedDirectory by remember { mutableStateOf(File("")) }
 
             Row(
@@ -141,7 +139,6 @@ fun App(processManager: ProcessManager) {
                                         val folder = openFilePicker(title = "Select Working Directory")
                                         if (folder != null) {
                                             selectedDirectory = folder
-                                            sidebarItems.add("$folder")
                                         }
                                     }
                                 }
@@ -157,8 +154,9 @@ fun App(processManager: ProcessManager) {
                             TextButton(
                                 // TODO add to projects
                                 onClick = {
-                                    sidebarItems.add("New Chat")
-                                    activeSidebarItem = "New Chat"
+                                    val session = Session(name = "New Session")
+                                    sessions = sessions + session
+                                    currentSession = session.id
                                 }
                             ) {
                                 Text(
@@ -179,12 +177,12 @@ fun App(processManager: ProcessManager) {
                                     .padding(8.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            items(sidebarItems) { item ->
-                                val isSelected = item == activeSidebarItem
+                            items(sessions) { session ->
+                                val isSelected = session.id == currentSession
                                 Card(
                                     modifier = Modifier
                                             .fillMaxWidth()
-                                            .clickable { activeSidebarItem = item },
+                                            .clickable { currentSession = session.id },
                                     shape = RoundedCornerShape(12.dp),
                                     elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
                                     colors = CardDefaults.cardColors(
@@ -206,7 +204,7 @@ fun App(processManager: ProcessManager) {
                                                     )
                                         )
                                         Text(
-                                            text = item,
+                                            text = session.name,
                                             style = MaterialTheme.typography.titleSmall
                                         )
                                     }
@@ -277,6 +275,15 @@ fun App(processManager: ProcessManager) {
         }
     }
 }
+
+// TODO serialize
+data class Session(
+    val id: String = UUID.randomUUID().toString(),
+    val name: String,
+    val project: String? = null,
+    val prompt: String = "",
+    val chat: List<String> = listOf(),
+)
 
 data class Message(
     val id: String = UUID.randomUUID().toString(),
