@@ -114,15 +114,30 @@ fun App(processManager: ProcessManager) {
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
                 ) {
                     Column(modifier = Modifier.fillMaxSize()) {
-                        Text(
-                            text = "Conversations",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                            modifier = Modifier
-                                    .fillMaxWidth()
-                                    .background(MaterialTheme.colorScheme.secondaryContainer)
-                                    .padding(horizontal = 12.dp, vertical = 14.dp)
-                        )
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            Text(
+                                text = "Conversations",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier
+                                        .weight(1f).fillMaxSize()
+                                        .background(MaterialTheme.colorScheme.secondaryContainer)
+                                        .padding(horizontal = 12.dp, vertical = 14.dp)
+                            )
+                            TextButton(
+                                onClick = {
+                                    println("click")
+                                }
+                            ) {
+                                Text(
+                                    "Add",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(
+                                        alpha = 0.7f
+                                    )
+                                )
+                            }
+                        }
 
                         Divider(color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.12f))
 
