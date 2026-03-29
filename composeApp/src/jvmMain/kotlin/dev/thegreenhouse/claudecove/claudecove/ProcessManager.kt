@@ -11,6 +11,8 @@ class ProcessManager(private val scope: CoroutineScope) {
 
     private lateinit var process: Process
     private lateinit var writer: BufferedWriter
+    private lateinit var command: Array<out String>
+    var directory = File(System.getProperty("java.io.tmpdir"))
 
     val stdout = MutableSharedFlow<String>()
 
@@ -18,8 +20,9 @@ class ProcessManager(private val scope: CoroutineScope) {
     // TODO add flavor
     // TODO use streaming
     fun start(vararg command: String) {
+        this.command = command
         process = ProcessBuilder(*command)
-                .directory(File("/Users/oniichan/Documents/Code/Calamari"))
+                .directory(directory)
                 .redirectError(ProcessBuilder.Redirect.DISCARD)
                 .start()
 
@@ -43,5 +46,10 @@ class ProcessManager(private val scope: CoroutineScope) {
 
     fun stop() {
         process.destroy()
+    }
+
+    fun restart() {
+        this.stop()
+        this.start(*this.command)
     }
 }

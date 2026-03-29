@@ -78,6 +78,7 @@ fun App(processManager: ProcessManager) {
         CompositionLocalProvider(LocalTextSelectionColors provides selectionColors) {
             var input by remember { mutableStateOf("") }
             var messages by remember { mutableStateOf(listOf<Message>()) }
+            var sessions by remember { mutableStateOf(listOf<Session>()) }
             val listState = rememberLazyListState()
             val scope = rememberCoroutineScope()
 
@@ -102,7 +103,6 @@ fun App(processManager: ProcessManager) {
             }
 
             // Sidebar + main content row
-            var sessions by remember { mutableStateOf(listOf<Session>()) }
             var currentSession by remember { mutableStateOf("") }
             var selectedDirectory by remember { mutableStateOf(File("")) }
 
@@ -157,6 +157,9 @@ fun App(processManager: ProcessManager) {
                                     val session = Session(name = "New Session")
                                     sessions = sessions + session
                                     currentSession = session.id
+                                    processManager.restart()
+
+                                    messages = session.messages
                                 }
                             ) {
                                 Text(
@@ -182,7 +185,14 @@ fun App(processManager: ProcessManager) {
                                 Card(
                                     modifier = Modifier
                                             .fillMaxWidth()
-                                            .clickable { currentSession = session.id },
+                                            .clickable {
+                                                currentSession = session.id
+//                                                processManager.directory =
+                                                processManager.restart()
+
+                                                // TODO save current messages
+                                                messages = session.messages
+                                                       },
                                     shape = RoundedCornerShape(12.dp),
                                     elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
                                     colors = CardDefaults.cardColors(
@@ -282,7 +292,7 @@ data class Session(
     val name: String,
     val project: String? = null,
     val prompt: String = "",
-    val chat: List<String> = listOf(),
+    val messages: List<Message> = listOf(),
 )
 
 data class Message(

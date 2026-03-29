@@ -60,6 +60,32 @@ class Claude {
     )
 
     companion object {
+        val args = arrayOf(
+            "--output-format",
+            "stream-json",
+            "--verbose",
+            "--input-format",
+            "stream-json",
+            "--max-thinking-tokens",
+            "31999",
+            "--model",
+            "default",
+            "--permission-prompt-tool",
+            "stdio",
+            "--mcp-config",
+            "{\"mcpServers\":{\"claude-vscode\":{\"type\":\"sdk\",\"name\":\"claude-vscode\"}}}",
+            "--setting-sources",
+            "user,project,local",
+            "--permission-mode",
+            "default",
+            "--include-partial-messages",
+            "--debug",
+            "--debug-to-stderr",
+            "--enable-auth-status",
+            "--no-chrome",
+            "--replay-user-messages"
+        )
+
         fun findClaude(): Result<File> {
             // TODO get proper list of locations and add setting for custom
             val home = File(System.getProperty("user.home"))
