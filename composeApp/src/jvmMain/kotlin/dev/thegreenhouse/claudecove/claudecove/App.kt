@@ -1,6 +1,7 @@
 package dev.thegreenhouse.claudecove.claudecove
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
@@ -10,11 +11,13 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeContentPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -23,6 +26,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.LocalTextSelectionColors
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.text.selection.TextSelectionColors
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Divider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -88,64 +94,137 @@ fun App(processManager: ProcessManager) {
                 }
             }
 
-            Column(
+            // Sidebar + main content row
+            val sidebarItems = listOf("Session 1", "Session 2", "Templates")
+            var activeSidebarItem by remember { mutableStateOf(sidebarItems.first()) }
+
+            Row(
                 modifier = Modifier
                         .background(MaterialTheme.colorScheme.primaryContainer)
                         .safeContentPadding()
-                        .fillMaxSize(),
-                horizontalAlignment = Alignment.CenterHorizontally,
+                        .fillMaxSize()
             ) {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.weight(1f).fillMaxSize(),
-                    contentPadding = PaddingValues(
-                        horizontal = 12.dp,
-                        vertical = 8.dp
-                    ),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    reverseLayout = false  // set true if you want newest at bottom like most chat apps
+                Card(
+                    modifier = Modifier
+                            .widthIn(min = 220.dp, max = 280.dp)
+                            .fillMaxHeight()
+                            .padding(8.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
                 ) {
-                    items(items = messages) { message ->
-                        ChatBubble(message)
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        Text(
+                            text = "Conversations",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(MaterialTheme.colorScheme.secondaryContainer)
+                                    .padding(horizontal = 12.dp, vertical = 14.dp)
+                        )
+
+                        Divider(color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.12f))
+
+                        LazyColumn(
+                            modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            items(sidebarItems) { item ->
+                                val isSelected = item == activeSidebarItem
+                                Card(
+                                    modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { activeSidebarItem = item },
+                                    shape = RoundedCornerShape(12.dp),
+                                    elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = if (isSelected) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                                        contentColor = if (isSelected) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                    .size(10.dp)
+                                                    .background(
+                                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
+                                                        shape = RoundedCornerShape(50)
+                                                    )
+                                        )
+                                        Text(
+                                            text = item,
+                                            style = MaterialTheme.typography.titleSmall
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
-                Row(
+
+                Column(
                     modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .padding(8.dp)
                 ) {
-                    TextField(
-                        input,
-                        label = { Text("prompt") },
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.weight(1f).fillMaxSize(),
+                        contentPadding = PaddingValues(
+                            horizontal = 12.dp,
+                            vertical = 8.dp
+                        ),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        reverseLayout = false
+                    ) {
+                        items(items = messages) { message ->
+                            ChatBubble(message)
+                        }
+                    }
+
+                    Row(
                         modifier = Modifier
                                 .fillMaxWidth()
-                                .heightIn(min = 150.dp)  // grows from 150dp, expands with content
-                                .onKeyEvent { event ->
-                                    // KeyDown for enter is actually
-                                    // nativeKeyEvent=InternalKeyEvent(key=Key: Unknown keyCode: 0x0, type=Unknown)
-                                    if (event.key == Key.Enter && event.type == KeyEventType.KeyUp &&
-                                        !event.isShiftPressed
-                                    ) {
-                                        // {"type":"user","uuid":"cc919660-fa64-4ca6-9e0c-473def3b9436","session_id":"","parent_tool_use_id":null, "message":{"role":"user","content":[{"type":"text","text":""}]}}
-                                        val prompt = Claude.Prompt.new(input)
-                                        val data = json.encodeToString(prompt)
+                                .padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TextField(
+                            input,
+                            label = { Text("prompt") },
+                            modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 150.dp)
+                                    .onKeyEvent { event ->
+                                        if (event.key == Key.Enter && event.type == KeyEventType.KeyUp &&
+                                            !event.isShiftPressed
+                                        ) {
+                                            val prompt = Claude.Prompt.new(input)
+                                            val data = json.encodeToString(prompt)
 
-                                        processManager.sendLine(data)
-                                        messages = messages + Message(
-                                            text = input,
-                                            fromSelf = true
-                                        )
-                                        input = ""
-                                        true
-                                    } else {
-                                        false
-                                    }
-                                },
-                        minLines = 5,   // always shows at least 5 lines tall
-                        maxLines = 10,  // caps growth at 10 lines
-                        onValueChange = { input = it }
-                    )
+                                            processManager.sendLine(data)
+                                            messages = messages + Message(
+                                                text = input,
+                                                fromSelf = true
+                                            )
+                                            input = ""
+                                            true
+                                        } else {
+                                            false
+                                        }
+                                    },
+                            minLines = 5,
+                            maxLines = 10,
+                            onValueChange = { input = it }
+                        )
+                    }
                 }
             }
         }
