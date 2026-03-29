@@ -72,9 +72,21 @@ class Claude {
     @Serializable
     data class Content (val type: String, val text: String)
 
-    // {"type":"result","subtype":"success","is_error":false,"duration_ms":20586,"duration_api_ms":19589,"num_turns":2,"result":"This is a **2D action/bullet-hell game** written in C, called **Calamari**.\n\n**Tech stack:**\n- **Language:** C (C99)\n- **Graphics:** Raylib\n- **Build system:** Zig (`build.zig`)\n\n**What it does:**\nThe player moves with WASD and has a unique dash mechanic — hold the left mouse button to record a spline path (Catmull-Rom curve) based on mouse movement, then release to dash along that path, damaging enemies. Enemies spawn and chase the player.\n\n**Current features:**\n- Focus/dash movement with spline path recording\n- Enemy mobs that chase the player\n- Kill count, kill streak, health/energy bars\n- Collision detection and damage system\n\nIt's a small, self-contained game in an early development stage — everything lives in a single `main.c` (~267 lines).","stop_reason":"end_turn","session_id":"3f4bf46f-b7ca-4a02-b503-849e06e210c5","total_cost_usd":0.06580615000000001,"usage":{"input_tokens":3,"cache_creation_input_tokens":4895,"cache_read_input_tokens":26279,"output_tokens":402,"server_tool_use":{"web_search_requests":0,"web_fetch_requests":0},"service_tier":"standard","cache_creation":{"ephemeral_1h_input_tokens":4895,"ephemeral_5m_input_tokens":0},"inference_geo":"","iterations":[],"speed":"standard"},"modelUsage":{"claude-sonnet-4-6":{"inputTokens":3,"outputTokens":402,"cacheReadInputTokens":26279,"cacheCreationInputTokens":4895,"webSearchRequests":0,"costUSD":0.03227895,"contextWindow":200000,"maxOutputTokens":32000},"claude-haiku-4-5-20251001":{"inputTokens":20,"outputTokens":977,"cacheReadInputTokens":45372,"cacheCreationInputTokens":19268,"webSearchRequests":0,"costUSD":0.03352720000000001,"contextWindow":200000,"maxOutputTokens":32000}},"permission_denials":[],"fast_mode_state":"off","uuid":"c200ce7b-03a0-46a0-89a9-b6fa47a556df"}
     @Serializable
-    data class Result(
-
+    data class Result (
+        val type: String,
+        val subtype: String,
+        val isError: Boolean,
+        val durationMs: Int,
+        val durationApiMs: Int,
+        val numTurns: Int,
+        val result: String,
+        val stopReason: String,
+        val sessionId: String,
+        val totalCostUsd: Float,
+        // ... more stuff
+        val permissionDenials: List<String>,
+        val fastModeState: String,
+        val uuid: String,
     )
 }

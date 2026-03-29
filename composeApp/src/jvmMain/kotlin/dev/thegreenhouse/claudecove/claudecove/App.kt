@@ -41,11 +41,22 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.SerializationException
 import java.util.UUID
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNamingStrategy
 
+@OptIn(ExperimentalSerializationApi::class)
 @Composable
 fun App(processManager: ProcessManager) {
+    val json = Json {
+        namingStrategy = JsonNamingStrategy.SnakeCase
+        ignoreUnknownKeys = true   // don't crash if JSON has extra fields
+        isLenient = true           // allows unquoted keys, trailing commas
+        encodeDefaults = true      // include fields that equal their default value
+    }
+
     val selectionColors = TextSelectionColors(
         handleColor = MaterialTheme.colorScheme.inversePrimary,
         backgroundColor = MaterialTheme.colorScheme.inversePrimary.copy(alpha = 0.4f)
@@ -60,8 +71,14 @@ fun App(processManager: ProcessManager) {
             // Collect stdout
             LaunchedEffect(Unit) {
                 processManager.stdout.collect { line ->
-                    Json.decodeFromString<>(line)
-                    messages = messages + Message(text = line, fromSelf = false)
+                    try {
+                        val result = json.decodeFromString<Claude.Result>(line)
+                        messages = messages + Message(text = result.result, fromSelf = false)
+                    } catch (e: SerializationException) {
+                        println(e.localizedMessage)
+                        println(line)
+                        println("------------------------------")
+                    }
                 }
             }
 
@@ -112,7 +129,7 @@ fun App(processManager: ProcessManager) {
                                     ) {
                                         // {"type":"user","uuid":"cc919660-fa64-4ca6-9e0c-473def3b9436","session_id":"","parent_tool_use_id":null, "message":{"role":"user","content":[{"type":"text","text":""}]}}
                                         val prompt = Claude.Prompt.new(input)
-                                        val data = Json.encodeToString(prompt)
+                                        val data = json.encodeToString(prompt)
 
                                         processManager.sendLine(data)
                                         messages = messages + Message(
@@ -166,12 +183,13 @@ fun ChatBubble(message: Message) {
                         .padding(horizontal = 12.dp, vertical = 8.dp)
             ) {
                 Column {
-                        SelectionContainer {
-                            Text(
-                                text = message.text,
-                                color = MaterialTheme.colorScheme.onPrimary
-                            )
-                        }
+                    // TODO use markdown and only render as markdown when streaming is done
+                    SelectionContainer {
+                        Text(
+                            text = message.text,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                    }
 
                     TextButton(
                         onClick = {

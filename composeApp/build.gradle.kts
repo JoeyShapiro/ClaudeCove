@@ -22,6 +22,7 @@ kotlin {
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
             implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.10.0")
+            implementation("com.mikepenz:multiplatform-markdown-renderer-m3:0.27.0")
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
