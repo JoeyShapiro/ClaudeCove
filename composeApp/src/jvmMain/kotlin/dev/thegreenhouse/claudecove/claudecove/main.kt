@@ -8,8 +8,6 @@ import androidx.compose.ui.window.application
 fun main() = application {
     val scope = rememberCoroutineScope()
     val processManager = remember {
-        //{"request_id":"dxv71vev7ef","type":"control_request","request":{"subtype":"generate_session_title","description":"based on the contents of this directory. what type of project does this look like","persist":false}}
-        //{"type":"user","uuid":"cc919660-fa64-4ca6-9e0c-473def3b9436","session_id":"","parent_tool_use_id":null,"message":{"role":"user","content":[{"type":"text","text":"based on the contents of this directory. what type of project does this look like"}]}}
         ProcessManager(scope).also {
             it.start(
                 "/Users/oniichan/.local/bin/claude",

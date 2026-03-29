@@ -42,6 +42,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.util.UUID
+import kotlinx.serialization.json.Json
 
 @Composable
 fun App(processManager: ProcessManager) {
@@ -52,13 +53,14 @@ fun App(processManager: ProcessManager) {
 
     MaterialTheme {
         CompositionLocalProvider(LocalTextSelectionColors provides selectionColors) {
-            var prompt by remember { mutableStateOf("") }
+            var input by remember { mutableStateOf("") }
             var messages by remember { mutableStateOf(listOf<Message>()) }
             val listState = rememberLazyListState()
 
             // Collect stdout
             LaunchedEffect(Unit) {
                 processManager.stdout.collect { line ->
+                    Json.decodeFromString<>(line)
                     messages = messages + Message(text = line, fromSelf = false)
                 }
             }
@@ -97,7 +99,7 @@ fun App(processManager: ProcessManager) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     TextField(
-                        prompt,
+                        input,
                         label = { Text("prompt") },
                         modifier = Modifier
                                 .fillMaxWidth()
@@ -108,12 +110,16 @@ fun App(processManager: ProcessManager) {
                                     if (event.key == Key.Enter && event.type == KeyEventType.KeyUp &&
                                         !event.isShiftPressed
                                     ) {
-                                        processManager.sendLine(prompt)
+                                        // {"type":"user","uuid":"cc919660-fa64-4ca6-9e0c-473def3b9436","session_id":"","parent_tool_use_id":null, "message":{"role":"user","content":[{"type":"text","text":""}]}}
+                                        val prompt = Claude.Prompt.new(input)
+                                        val data = Json.encodeToString(prompt)
+
+                                        processManager.sendLine(data)
                                         messages = messages + Message(
-                                            text = prompt,
+                                            text = input,
                                             fromSelf = true
                                         )
-                                        prompt = ""
+                                        input = ""
                                         true
                                     } else {
                                         false
@@ -121,7 +127,7 @@ fun App(processManager: ProcessManager) {
                                 },
                         minLines = 5,   // always shows at least 5 lines tall
                         maxLines = 10,  // caps growth at 10 lines
-                        onValueChange = { prompt = it }
+                        onValueChange = { input = it }
                     )
                 }
             }
