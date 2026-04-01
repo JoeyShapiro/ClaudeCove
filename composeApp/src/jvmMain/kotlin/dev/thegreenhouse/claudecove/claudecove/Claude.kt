@@ -87,13 +87,10 @@ class Claude {
         )
 
         fun findClaude(): Result<File> {
-            // TODO get proper list of locations and add setting for custom
+            // could be in winget or homebrew. at that point use should specify it
+            // or maybe i could use where/which
             val home = File(System.getProperty("user.home"))
-            val file = if (System.getProperty("os.name").lowercase().contains("windows")) {
-                File(System.getenv("APPDATA"), "config.ini")
-            } else {
-                home.resolve(".local/bin/claude")
-            }
+            val file = home.resolve(".local/bin/claude")
 
             if (!file.exists()) {
                 return Result.failure(FileNotFoundException("File not found: ${file.absolutePath}"))

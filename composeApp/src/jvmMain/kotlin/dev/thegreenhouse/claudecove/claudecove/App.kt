@@ -154,12 +154,25 @@ fun App(processManager: ProcessManager) {
                             TextButton(
                                 // TODO add to projects
                                 onClick = {
+                                    // save current messages
+                                    sessions = sessions.map { session ->
+                                        if (session.id == currentSession) {
+                                            session.copy(messages = messages)  // new object via copy()
+                                        } else {
+                                            session
+                                        }
+                                    }
+
+                                    // go to newly added session
                                     val session = Session(name = "New Session")
                                     sessions = sessions + session
                                     currentSession = session.id
-                                    processManager.restart()
-
                                     messages = session.messages
+
+                                    // start the new process
+                                    // TODO check if project
+                                    processManager.directory = null
+                                    processManager.restart()
                                 }
                             ) {
                                 Text(
@@ -186,12 +199,22 @@ fun App(processManager: ProcessManager) {
                                     modifier = Modifier
                                             .fillMaxWidth()
                                             .clickable {
-                                                currentSession = session.id
-//                                                processManager.directory =
-                                                processManager.restart()
+                                                // save current state
+                                                sessions = sessions.map { session ->
+                                                    if (session.id == currentSession) {
+                                                        session.copy(messages = messages)  // new object via copy()
+                                                    } else {
+                                                        session
+                                                    }
+                                                }
 
-                                                // TODO save current messages
+                                                // go to other session
+                                                currentSession = session.id
                                                 messages = session.messages
+
+                                                // start the new process
+                                                processManager.directory = null
+                                                processManager.restart()
                                                        },
                                     shape = RoundedCornerShape(12.dp),
                                     elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),

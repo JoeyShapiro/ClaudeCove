@@ -12,7 +12,7 @@ class ProcessManager(private val scope: CoroutineScope) {
     private lateinit var process: Process
     private lateinit var writer: BufferedWriter
     private lateinit var command: Array<out String>
-    var directory = File(System.getProperty("java.io.tmpdir"))
+    var directory: File? = null
 
     val stdout = MutableSharedFlow<String>()
 
@@ -22,7 +22,7 @@ class ProcessManager(private val scope: CoroutineScope) {
     fun start(vararg command: String) {
         this.command = command
         process = ProcessBuilder(*command)
-                .directory(directory)
+                .directory(directory ?: File(System.getProperty("java.io.tmpdir")))
                 .redirectError(ProcessBuilder.Redirect.DISCARD)
                 .start()
 
