@@ -1,5 +1,7 @@
 package dev.thegreenhouse.claudecove.claudecove
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
@@ -37,6 +39,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.isShiftPressed
@@ -77,8 +80,10 @@ fun App(processManager: ProcessManager) {
     MaterialTheme {
         CompositionLocalProvider(LocalTextSelectionColors provides selectionColors) {
             var input by remember { mutableStateOf("") }
+            var projects by remember { mutableStateOf(listOf<Project>()) }
             var messages by remember { mutableStateOf(listOf<Message>()) }
             var sessions by remember { mutableStateOf(listOf<Session>()) }
+            var currentSession by remember { mutableStateOf("") }
             val listState = rememberLazyListState()
             val scope = rememberCoroutineScope()
 
@@ -103,9 +108,6 @@ fun App(processManager: ProcessManager) {
             }
 
             // Sidebar + main content row
-            var currentSession by remember { mutableStateOf("") }
-            var selectedDirectory by remember { mutableStateOf(File("")) }
-
             Row(
                 modifier = Modifier
                         .background(MaterialTheme.colorScheme.primaryContainer)
@@ -135,10 +137,14 @@ fun App(processManager: ProcessManager) {
                             TextButton(
                                 onClick = {
                                     scope.launch {
-                                        // TODO create as project with name and stuff
                                         val folder = openFilePicker(title = "Select Working Directory")
                                         if (folder != null) {
-                                            selectedDirectory = folder
+                                            projects = projects + Project(
+                                                id = UUID.randomUUID().toString(),
+                                                name = folder.name,
+                                                directory = folder,
+                                                sessions = listOf(),
+                                            )
                                         }
                                     }
                                 }
@@ -152,7 +158,6 @@ fun App(processManager: ProcessManager) {
                                 )
                             }
                             TextButton(
-                                // TODO add to projects
                                 onClick = {
                                     // save current messages
                                     sessions = sessions.map { session ->
@@ -194,54 +199,53 @@ fun App(processManager: ProcessManager) {
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             items(sessions) { session ->
-                                val isSelected = session.id == currentSession
-                                Card(
-                                    modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clickable {
-                                                // save current state
-                                                sessions = sessions.map { session ->
-                                                    if (session.id == currentSession) {
-                                                        session.copy(messages = messages)  // new object via copy()
-                                                    } else {
-                                                        session
-                                                    }
-                                                }
+                                SessionItem(
+                                    sessionId = session.id,
+                                    selected = session.id == currentSession,
+                                    onSessionClick = { sessionId ->
+                                        // save current state
+                                        sessions = sessions.map { session ->
+                                            if (session.id == currentSession) {
+                                                session.copy(messages = messages)  // new object via copy()
+                                            } else {
+                                                session
+                                            }
+                                        }
 
-                                                // go to other session
-                                                currentSession = session.id
-                                                messages = session.messages
+                                        // go to other session
+                                        currentSession = sessionId
+                                        messages = session.messages
 
-                                                // start the new process
-                                                processManager.directory = null
-                                                processManager.restart()
-                                                       },
-                                    shape = RoundedCornerShape(12.dp),
-                                    elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = if (isSelected) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-                                        contentColor = if (isSelected) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                    .size(10.dp)
-                                                    .background(
-                                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
-                                                        shape = RoundedCornerShape(50)
-                                                    )
-                                        )
-                                        Text(
-                                            text = session.name,
-                                            style = MaterialTheme.typography.titleSmall
-                                        )
+                                        // start the new process
+                                        processManager.directory = null
+                                        processManager.restart()
                                     }
-                                }
+                                )
+                            }
+                            items(projects) {project ->
+                                ProjectSidebarItem(
+                                    project = project,
+                                    currentSession = currentSession,
+                                    onSessionClick = { sessionId ->
+                                        // save current state
+                                        sessions = sessions.map { session ->
+                                            if (session.id == currentSession) {
+                                                session.copy(messages = messages)  // new object via copy()
+                                            } else {
+                                                session
+                                            }
+                                        }
+
+                                        // go to other session
+                                        currentSession = sessionId
+                                        val found = sessions.find { it.id == sessionId }
+                                        messages = found?.messages ?: listOf()
+
+                                        // start the new process
+                                        processManager.directory = null
+                                        processManager.restart()
+                                    }
+                                )
                             }
                         }
                     }
@@ -309,6 +313,83 @@ fun App(processManager: ProcessManager) {
     }
 }
 
+@Composable
+fun ProjectSidebarItem(
+    project: Project,
+    currentSession: String,
+    onSessionClick: (String) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val chevronRotation by animateFloatAsState(targetValue = if (expanded) 0f else -90f)
+    val hasSelectedSession = project.sessions.any { it == currentSession }
+
+    Column {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = !expanded },
+            shape = RoundedCornerShape(12.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = if (hasSelectedSession) MaterialTheme.colorScheme.tertiaryContainer
+                                 else MaterialTheme.colorScheme.surface,
+                contentColor = if (hasSelectedSession) MaterialTheme.colorScheme.onTertiaryContainer
+                               else MaterialTheme.colorScheme.onSurface
+            )
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .background(
+                            color = if (hasSelectedSession) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+                            shape = RoundedCornerShape(3.dp)
+                        )
+                )
+                Text(
+                    text = project.name,
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    text = "▾",
+                    fontSize = 18.sp,
+                    modifier = Modifier
+                        .rotate(chevronRotation)
+                        .alpha(0.6f)
+                )
+            }
+        }
+
+        AnimatedVisibility(visible = expanded) {
+            Column(
+                modifier = Modifier.padding(start = 12.dp, top = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                project.sessions.forEach { sessionId ->
+                    SessionItem(
+                        sessionId = sessionId,
+                        selected = sessionId == currentSession,
+                        onSessionClick = { onSessionClick(sessionId) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+data class Project(
+    val id: String,
+    val name: String,
+    val directory: File,
+    val sessions: List<String>,
+)
+
 // TODO serialize
 data class Session(
     val id: String = UUID.randomUUID().toString(),
@@ -324,6 +405,46 @@ data class Message(
     val fromSelf: Boolean,
     val timestamp: Long = System.currentTimeMillis()
 )
+
+@Composable
+fun SessionItem(
+    sessionId: String,
+    selected: Boolean,
+    onSessionClick: (String) -> Unit,
+) {
+    Card(
+        modifier = Modifier
+                .fillMaxWidth()
+                .clickable {
+                    onSessionClick(sessionId)
+                },
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (selected) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = if (selected) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                        .size(10.dp)
+                        .background(
+                            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
+                            shape = RoundedCornerShape(50)
+                        )
+            )
+            Text(
+                text = sessionId, // TODO fix
+                style = MaterialTheme.typography.titleSmall
+            )
+        }
+    }
+}
 
 @Composable
 fun ChatBubble(message: Message) {

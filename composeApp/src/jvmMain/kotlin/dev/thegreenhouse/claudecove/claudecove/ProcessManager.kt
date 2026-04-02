@@ -16,7 +16,9 @@ class ProcessManager(private val scope: CoroutineScope) {
 
     val stdout = MutableSharedFlow<String>()
 
-    // TODO change cwd
+    // TODO create projects
+    // TODO create session when starting a blank chat at start. or just go to last one
+    // TODO use session id created from claude
     // TODO add flavor
     // TODO use streaming
     fun start(vararg command: String) {
