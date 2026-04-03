@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -61,6 +62,7 @@ import kotlinx.coroutines.withContext
 import javax.swing.JFileChooser
 import javax.swing.filechooser.FileNameExtensionFilter
 import java.io.File
+import kotlin.collections.plus
 
 @OptIn(ExperimentalSerializationApi::class)
 @Composable
@@ -142,8 +144,7 @@ fun App(processManager: ProcessManager) {
                                             projects = projects + Project(
                                                 id = UUID.randomUUID().toString(),
                                                 name = folder.name,
-                                                directory = folder,
-                                                sessions = listOf(),
+                                                directory = folder
                                             )
                                         }
                                     }
@@ -175,7 +176,6 @@ fun App(processManager: ProcessManager) {
                                     messages = session.messages
 
                                     // start the new process
-                                    // TODO check if project
                                     processManager.directory = null
                                     processManager.restart()
                                 }
@@ -199,53 +199,86 @@ fun App(processManager: ProcessManager) {
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             items(sessions) { session ->
-                                SessionItem(
-                                    sessionId = session.id,
-                                    selected = session.id == currentSession,
-                                    onSessionClick = { sessionId ->
-                                        // save current state
-                                        sessions = sessions.map { session ->
-                                            if (session.id == currentSession) {
-                                                session.copy(messages = messages)  // new object via copy()
-                                            } else {
-                                                session
+                                if (session.project == null) {
+                                    SessionItem(
+                                        name = session.name,
+                                        selected = session.id == currentSession,
+                                        onSessionClick = {
+                                            // save current state
+                                            sessions = sessions.map { mapSession ->
+                                                if (mapSession.id == currentSession) {
+                                                    mapSession.copy(messages = messages)  // new object via copy()
+                                                } else {
+                                                    mapSession
+                                                }
                                             }
+
+                                            // go to other session
+                                            currentSession = session.id
+                                            messages = session.messages
+
+                                            // start the new process
+                                            processManager.directory = null
+                                            processManager.restart()
                                         }
-
-                                        // go to other session
-                                        currentSession = sessionId
-                                        messages = session.messages
-
-                                        // start the new process
-                                        processManager.directory = null
-                                        processManager.restart()
-                                    }
-                                )
+                                    )
+                                }
                             }
-                            items(projects) {project ->
+                            items(projects) { project ->
                                 ProjectSidebarItem(
                                     project = project,
-                                    currentSession = currentSession,
-                                    onSessionClick = { sessionId ->
-                                        // save current state
-                                        sessions = sessions.map { session ->
-                                            if (session.id == currentSession) {
-                                                session.copy(messages = messages)  // new object via copy()
+                                    selected = sessions.any {
+                                        session -> session.id == currentSession &&
+                                            session.project == project.id
+                                                            },
+                                    onCreateSession = {
+                                        // save current messages
+                                        sessions = sessions.map { mapSession ->
+                                            if (mapSession.id == currentSession) {
+                                                mapSession.copy(messages = messages)  // new object via copy()
                                             } else {
-                                                session
+                                                mapSession
                                             }
                                         }
 
-                                        // go to other session
-                                        currentSession = sessionId
-                                        val found = sessions.find { it.id == sessionId }
-                                        messages = found?.messages ?: listOf()
+                                        // go to newly added session
+                                        val newSession = Session(name = "New Session", project = project.id)
+                                        sessions = sessions + newSession
+                                        currentSession = newSession.id
+                                        messages = newSession.messages
 
                                         // start the new process
-                                        processManager.directory = null
+                                        processManager.directory = project.directory
                                         processManager.restart()
                                     }
-                                )
+                                ) {
+                                    sessions.forEach { session ->
+                                        if (session.project == project.id) {
+                                            SessionItem(
+                                                name = session.name,
+                                                selected = session.id == currentSession,
+                                                onSessionClick = {
+                                                    // save current state
+                                                    sessions = sessions.map { mapSession ->
+                                                        if (mapSession.id == currentSession) {
+                                                            mapSession.copy(messages = messages)  // new object via copy()
+                                                        } else {
+                                                            mapSession
+                                                        }
+                                                    }
+
+                                                    // go to other session
+                                                    currentSession = session.id
+                                                    messages = session.messages
+
+                                                    // start the new process
+                                                    processManager.directory = project.directory
+                                                    processManager.restart()
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -316,12 +349,12 @@ fun App(processManager: ProcessManager) {
 @Composable
 fun ProjectSidebarItem(
     project: Project,
-    currentSession: String,
-    onSessionClick: (String) -> Unit,
+    selected: Boolean,
+    onCreateSession: (Project) -> Unit,
+    content: @Composable ColumnScope.() -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
     val chevronRotation by animateFloatAsState(targetValue = if (expanded) 0f else -90f)
-    val hasSelectedSession = project.sessions.any { it == currentSession }
 
     Column {
         Card(
@@ -331,9 +364,9 @@ fun ProjectSidebarItem(
             shape = RoundedCornerShape(12.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
             colors = CardDefaults.cardColors(
-                containerColor = if (hasSelectedSession) MaterialTheme.colorScheme.tertiaryContainer
+                containerColor = if (selected) MaterialTheme.colorScheme.tertiaryContainer
                                  else MaterialTheme.colorScheme.surface,
-                contentColor = if (hasSelectedSession) MaterialTheme.colorScheme.onTertiaryContainer
+                contentColor = if (selected) MaterialTheme.colorScheme.onTertiaryContainer
                                else MaterialTheme.colorScheme.onSurface
             )
         ) {
@@ -342,27 +375,31 @@ fun ProjectSidebarItem(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
             ) {
-                Box(
+                Text(
+                    text = "▾",
+                    fontSize = 18.sp,
                     modifier = Modifier
-                        .size(8.dp)
-                        .background(
-                            color = if (hasSelectedSession) MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
-                            shape = RoundedCornerShape(3.dp)
-                        )
+                            .rotate(chevronRotation)
+                            .alpha(0.6f)
                 )
                 Text(
                     text = project.name,
                     style = MaterialTheme.typography.titleSmall,
                     modifier = Modifier.weight(1f)
                 )
-                Text(
-                    text = "▾",
-                    fontSize = 18.sp,
-                    modifier = Modifier
-                        .rotate(chevronRotation)
-                        .alpha(0.6f)
-                )
+                TextButton(
+                    onClick = {
+                        onCreateSession(project)
+                    }
+                ) {
+                    Text(
+                        "Chat",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(
+                            alpha = 0.7f
+                        )
+                    )
+                }
             }
         }
 
@@ -371,13 +408,7 @@ fun ProjectSidebarItem(
                 modifier = Modifier.padding(start = 12.dp, top = 4.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                project.sessions.forEach { sessionId ->
-                    SessionItem(
-                        sessionId = sessionId,
-                        selected = sessionId == currentSession,
-                        onSessionClick = { onSessionClick(sessionId) }
-                    )
-                }
+                content()
             }
         }
     }
@@ -387,14 +418,13 @@ data class Project(
     val id: String,
     val name: String,
     val directory: File,
-    val sessions: List<String>,
 )
 
 // TODO serialize
 data class Session(
     val id: String = UUID.randomUUID().toString(),
     val name: String,
-    val project: String? = null,
+    val project: String? = null, // it is better to have the parent. then its 1:many. which is easier to db-ize
     val prompt: String = "",
     val messages: List<Message> = listOf(),
 )
@@ -408,15 +438,15 @@ data class Message(
 
 @Composable
 fun SessionItem(
-    sessionId: String,
+    name: String,
     selected: Boolean,
-    onSessionClick: (String) -> Unit,
+    onSessionClick: () -> Unit,
 ) {
     Card(
         modifier = Modifier
                 .fillMaxWidth()
                 .clickable {
-                    onSessionClick(sessionId)
+                    onSessionClick()
                 },
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
@@ -439,7 +469,7 @@ fun SessionItem(
                         )
             )
             Text(
-                text = sessionId, // TODO fix
+                text = name,
                 style = MaterialTheme.typography.titleSmall
             )
         }
