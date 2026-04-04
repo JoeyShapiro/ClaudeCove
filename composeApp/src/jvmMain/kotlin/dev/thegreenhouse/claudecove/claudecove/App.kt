@@ -63,10 +63,10 @@ import javax.swing.JFileChooser
 import javax.swing.filechooser.FileNameExtensionFilter
 import java.io.File
 import kotlin.collections.plus
-import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.ResultRow
-import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.Table
+import org.jetbrains.exposed.sql.insert
+import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 
 @OptIn(ExperimentalSerializationApi::class)
@@ -88,7 +88,6 @@ fun App(processManager: ProcessManager) {
         CompositionLocalProvider(LocalTextSelectionColors provides selectionColors) {
             var input by remember { mutableStateOf("") }
             var projects by remember { mutableStateOf(listOf<Project>()) }
-            var messages by remember { mutableStateOf(listOf<Message>()) }
             var sessions by remember { mutableStateOf(listOf<Session>()) }
             var currentSession by remember { mutableStateOf("") }
             var currentMessages by remember { mutableStateOf(listOf<Message>()) }
@@ -100,7 +99,21 @@ fun App(processManager: ProcessManager) {
                 processManager.stdout.collect { line ->
                     try {
                         val response = json.decodeFromString<Claude.Response>(line)
-                        messages = messages + Message(session = currentSession, text = response.result, fromSelf = false)
+                        val newMessage = Message(
+                            session = currentSession,
+                            text = response.result,
+                            fromSelf = false
+                        )
+                        currentMessages = currentMessages + newMessage
+                        transaction {
+                            Messages.insert {
+                                it[id]        = newMessage.id
+                                it[session]   = newMessage.session
+                                it[text]      = newMessage.text
+                                it[fromSelf]  = newMessage.fromSelf
+                                it[timestamp] = newMessage.timestamp
+                            }
+                        }
                     } catch (e: SerializationException) {
                         println(e.localizedMessage)
                         println(line)
@@ -169,7 +182,11 @@ fun App(processManager: ProcessManager) {
                                     val session = Session(name = "New Session")
                                     sessions = sessions + session
                                     currentSession = session.id
-                                    currentMessages = messages.filter { it.session == currentSession }
+                                    currentMessages = transaction {
+                                        Messages.selectAll()
+                                                .where { Messages.session eq currentSession }
+                                                .map { Message.from(it) }
+                                    }
 
                                     // start the new process
                                     processManager.directory = null
@@ -202,7 +219,11 @@ fun App(processManager: ProcessManager) {
                                         onSessionClick = {
                                             // go to other session
                                             currentSession = session.id
-                                            currentMessages = messages.filter { it.session == currentSession }
+                                            currentMessages = transaction {
+                                                Messages.selectAll()
+                                                        .where { Messages.session eq currentSession }
+                                                        .map { Message.from(it) }
+                                            }
 
                                             // start the new process
                                             processManager.directory = null
@@ -223,7 +244,11 @@ fun App(processManager: ProcessManager) {
                                         val newSession = Session(name = "New Session", project = project.id)
                                         sessions = sessions + newSession
                                         currentSession = newSession.id
-                                        currentMessages = messages.filter { it.session == currentSession }
+                                        currentMessages = transaction {
+                                            Messages.selectAll()
+                                                    .where { Messages.session eq currentSession }
+                                                    .map { Message.from(it) }
+                                        }
 
                                         // start the new process
                                         processManager.directory = project.directory
@@ -238,7 +263,11 @@ fun App(processManager: ProcessManager) {
                                                 onSessionClick = {
                                                     // go to other session
                                                     currentSession = session.id
-                                                    currentMessages = messages.filter { it.session == currentSession }
+                                                    currentMessages = transaction {
+                                                        Messages.selectAll()
+                                                                .where { Messages.session eq currentSession }
+                                                                .map { Message.from(it) }
+                                                    }
 
                                                     // start the new process
                                                     processManager.directory = project.directory
@@ -294,11 +323,22 @@ fun App(processManager: ProcessManager) {
                                             val data = json.encodeToString(prompt)
 
                                             processManager.sendLine(data)
-                                            messages = messages + Message(
+                                            val newMessage = Message(
                                                 session = currentSession,
                                                 text = input,
                                                 fromSelf = true
                                             )
+                                            currentMessages = currentMessages + newMessage
+                                            transaction {
+                                                Messages.insert {
+                                                    it[id]        = newMessage.id
+                                                    it[session]   = newMessage.session
+                                                    it[text]      = newMessage.text
+                                                    it[fromSelf]  = newMessage.fromSelf
+                                                    it[timestamp] = newMessage.timestamp
+                                                }
+                                            }
+
                                             input = ""
                                             true
                                         } else {
