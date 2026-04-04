@@ -17,6 +17,7 @@ class ProcessManager(private val scope: CoroutineScope) {
     val stdout = MutableSharedFlow<String>()
 
     // TODO use Expose DB
+    // TODO only have one messages list. can do this all because of db
     // TODO create session when starting a blank chat at start. or just go to last one
     // TODO use session id created from claude
     // TODO add flavor

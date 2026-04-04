@@ -86,6 +86,7 @@ fun App(processManager: ProcessManager) {
             var messages by remember { mutableStateOf(listOf<Message>()) }
             var sessions by remember { mutableStateOf(listOf<Session>()) }
             var currentSession by remember { mutableStateOf("") }
+            var currentMessages by remember { mutableStateOf(listOf<Message>()) }
             val listState = rememberLazyListState()
             val scope = rememberCoroutineScope()
 
@@ -94,7 +95,7 @@ fun App(processManager: ProcessManager) {
                 processManager.stdout.collect { line ->
                     try {
                         val response = json.decodeFromString<Claude.Response>(line)
-                        messages = messages + Message(text = response.result, fromSelf = false)
+                        messages = messages + Message(session = currentSession, text = response.result, fromSelf = false)
                     } catch (e: SerializationException) {
                         println(e.localizedMessage)
                         println(line)
@@ -103,9 +104,9 @@ fun App(processManager: ProcessManager) {
                 }
             }
 
-            LaunchedEffect(messages.size) {
-                if (messages.isNotEmpty()) {
-                    listState.animateScrollToItem(messages.lastIndex)
+            LaunchedEffect(currentMessages.size) {
+                if (currentMessages.isNotEmpty()) {
+                    listState.animateScrollToItem(currentMessages.lastIndex)
                 }
             }
 
@@ -160,20 +161,11 @@ fun App(processManager: ProcessManager) {
                             }
                             TextButton(
                                 onClick = {
-                                    // save current messages
-                                    sessions = sessions.map { session ->
-                                        if (session.id == currentSession) {
-                                            session.copy(messages = messages)  // new object via copy()
-                                        } else {
-                                            session
-                                        }
-                                    }
-
                                     // go to newly added session
                                     val session = Session(name = "New Session")
                                     sessions = sessions + session
                                     currentSession = session.id
-                                    messages = session.messages
+                                    currentMessages = messages.filter { it.session == currentSession }
 
                                     // start the new process
                                     processManager.directory = null
@@ -204,18 +196,9 @@ fun App(processManager: ProcessManager) {
                                         name = session.name,
                                         selected = session.id == currentSession,
                                         onSessionClick = {
-                                            // save current state
-                                            sessions = sessions.map { mapSession ->
-                                                if (mapSession.id == currentSession) {
-                                                    mapSession.copy(messages = messages)  // new object via copy()
-                                                } else {
-                                                    mapSession
-                                                }
-                                            }
-
                                             // go to other session
                                             currentSession = session.id
-                                            messages = session.messages
+                                            currentMessages = messages.filter { it.session == currentSession }
 
                                             // start the new process
                                             processManager.directory = null
@@ -232,20 +215,11 @@ fun App(processManager: ProcessManager) {
                                             session.project == project.id
                                                             },
                                     onCreateSession = {
-                                        // save current messages
-                                        sessions = sessions.map { mapSession ->
-                                            if (mapSession.id == currentSession) {
-                                                mapSession.copy(messages = messages)  // new object via copy()
-                                            } else {
-                                                mapSession
-                                            }
-                                        }
-
                                         // go to newly added session
                                         val newSession = Session(name = "New Session", project = project.id)
                                         sessions = sessions + newSession
                                         currentSession = newSession.id
-                                        messages = newSession.messages
+                                        currentMessages = messages.filter { it.session == currentSession }
 
                                         // start the new process
                                         processManager.directory = project.directory
@@ -258,18 +232,9 @@ fun App(processManager: ProcessManager) {
                                                 name = session.name,
                                                 selected = session.id == currentSession,
                                                 onSessionClick = {
-                                                    // save current state
-                                                    sessions = sessions.map { mapSession ->
-                                                        if (mapSession.id == currentSession) {
-                                                            mapSession.copy(messages = messages)  // new object via copy()
-                                                        } else {
-                                                            mapSession
-                                                        }
-                                                    }
-
                                                     // go to other session
                                                     currentSession = session.id
-                                                    messages = session.messages
+                                                    currentMessages = messages.filter { it.session == currentSession }
 
                                                     // start the new process
                                                     processManager.directory = project.directory
@@ -300,7 +265,7 @@ fun App(processManager: ProcessManager) {
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         reverseLayout = false
                     ) {
-                        items(items = messages) { message ->
+                        items(items = currentMessages) { message ->
                             ChatBubble(message)
                         }
                     }
@@ -326,6 +291,7 @@ fun App(processManager: ProcessManager) {
 
                                             processManager.sendLine(data)
                                             messages = messages + Message(
+                                                session = currentSession,
                                                 text = input,
                                                 fromSelf = true
                                             )
@@ -426,11 +392,11 @@ data class Session(
     val name: String,
     val project: String? = null, // it is better to have the parent. then its 1:many. which is easier to db-ize
     val prompt: String = "",
-    val messages: List<Message> = listOf(),
 )
 
 data class Message(
     val id: String = UUID.randomUUID().toString(),
+    val session: String,
     val text: String,
     val fromSelf: Boolean,
     val timestamp: Long = System.currentTimeMillis()
