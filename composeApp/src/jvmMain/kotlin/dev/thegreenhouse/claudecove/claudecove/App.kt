@@ -63,6 +63,11 @@ import javax.swing.JFileChooser
 import javax.swing.filechooser.FileNameExtensionFilter
 import java.io.File
 import kotlin.collections.plus
+import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.ResultRow
+import org.jetbrains.exposed.sql.SchemaUtils
+import org.jetbrains.exposed.sql.Table
+import org.jetbrains.exposed.sql.transactions.transaction
 
 @OptIn(ExperimentalSerializationApi::class)
 @Composable
@@ -143,7 +148,6 @@ fun App(processManager: ProcessManager) {
                                         val folder = openFilePicker(title = "Select Working Directory")
                                         if (folder != null) {
                                             projects = projects + Project(
-                                                id = UUID.randomUUID().toString(),
                                                 name = folder.name,
                                                 directory = folder
                                             )
@@ -380,19 +384,60 @@ fun ProjectSidebarItem(
     }
 }
 
+// maybe try out DAO. but DSL seems good enough.
+// DAO just seems to do the map for me,
+// and im not sure if i can trust it with joins.
+// it seems meant for "lifecycle/persistence behavior"
 data class Project(
-    val id: String,
+    val id: String = UUID.randomUUID().toString(),
     val name: String,
     val directory: File,
-)
+) {
+    companion object {
+        fun from(row: ResultRow): Project {
+            return Project(
+                id = row[Projects.id],
+                name = row[Projects.name],
+                directory = File(row[Projects.directory])
+            )
+        }
+    }
+}
 
-// TODO serialize
+object Projects : Table("projects") {
+    val id        = varchar("id", 36)
+    val name      = varchar("name", 256)
+    val directory = varchar("directory", 1024) // store the path as a string
+
+    override val primaryKey = PrimaryKey(id)
+}
+
 data class Session(
     val id: String = UUID.randomUUID().toString(),
     val name: String,
     val project: String? = null, // it is better to have the parent. then its 1:many. which is easier to db-ize
     val prompt: String = "",
-)
+) {
+    companion object {
+        fun from(row: ResultRow): Session {
+            return Session(
+                id = row[Sessions.id],
+                name = row[Sessions.name],
+                project = row[Sessions.project],
+                prompt = row[Sessions.prompt],
+            )
+        }
+    }
+}
+
+object Sessions : Table("sessions") {
+    val id        = varchar("id", 36)
+    val name      = varchar("name", 256)
+    val project   = varchar("project", 36).nullable()
+    val prompt    = varchar("prompt", 1024)
+
+    override val primaryKey = PrimaryKey(Projects.id)
+}
 
 data class Message(
     val id: String = UUID.randomUUID().toString(),
@@ -400,7 +445,29 @@ data class Message(
     val text: String,
     val fromSelf: Boolean,
     val timestamp: Long = System.currentTimeMillis()
-)
+) {
+    companion object {
+        fun from(row: ResultRow): Message {
+            return Message(
+                id = row[Messages.id],
+                session = row[Messages.session],
+                text = row[Messages.text],
+                fromSelf = row[Messages.fromSelf],
+                timestamp = row[Messages.timestamp]
+            )
+        }
+    }
+}
+
+object Messages : Table("messages") {
+    val id        = varchar("id", 36)
+    val session   = varchar("session", 36)
+    val text      = text("text")
+    val fromSelf  = bool("from_self")
+    val timestamp = long("timestamp")
+
+    override val primaryKey = PrimaryKey(Projects.id)
+}
 
 @Composable
 fun SessionItem(

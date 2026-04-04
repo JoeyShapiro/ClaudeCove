@@ -8,6 +8,8 @@ plugins {
     kotlin("plugin.serialization") version "2.3.20"
 }
 
+val exposedVersion = "0.54.0"
+
 kotlin {
     jvm()
     
@@ -23,6 +25,10 @@ kotlin {
             implementation(libs.androidx.lifecycle.runtimeCompose)
             implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.10.0")
             implementation("com.mikepenz:multiplatform-markdown-renderer-m3:0.27.0")
+
+            implementation("org.jetbrains.exposed:exposed-core:$exposedVersion")
+            implementation("org.jetbrains.exposed:exposed-jdbc:$exposedVersion")
+            implementation("org.xerial:sqlite-jdbc:3.45.3.0")          // SQLite
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
