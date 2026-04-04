@@ -94,6 +94,15 @@ fun App(processManager: ProcessManager) {
             val listState = rememberLazyListState()
             val scope = rememberCoroutineScope()
 
+            sessions = transaction {
+                Sessions.selectAll()
+                        .map { Session.from(it) }
+            }
+            projects = transaction {
+                Projects.selectAll()
+                        .map { Project.from(it) }
+            }
+
             // Collect stdout
             LaunchedEffect(Unit) {
                 processManager.stdout.collect { line ->
@@ -160,10 +169,18 @@ fun App(processManager: ProcessManager) {
                                     scope.launch {
                                         val folder = openFilePicker(title = "Select Working Directory")
                                         if (folder != null) {
-                                            projects = projects + Project(
+                                            val newProject = Project(
                                                 name = folder.name,
                                                 directory = folder
                                             )
+                                            projects = projects + newProject
+                                            transaction {
+                                                Projects.insert {
+                                                    it[id] = newProject.id
+                                                    it[name] = newProject.name
+                                                    it[directory] = newProject.directory.absolutePath
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -179,9 +196,18 @@ fun App(processManager: ProcessManager) {
                             TextButton(
                                 onClick = {
                                     // go to newly added session
-                                    val session = Session(name = "New Session")
-                                    sessions = sessions + session
-                                    currentSession = session.id
+                                    val newSession = Session(name = "New Session")
+                                    sessions = sessions + newSession
+                                    transaction {
+                                        Sessions.insert {
+                                            it[id] = newSession.id
+                                            it[name]   = newSession.name
+                                            it[project]  = newSession.project
+                                            it[prompt] = newSession.prompt
+                                        }
+                                    }
+
+                                    currentSession = newSession.id
                                     currentMessages = transaction {
                                         Messages.selectAll()
                                                 .where { Messages.session eq currentSession }
@@ -212,6 +238,7 @@ fun App(processManager: ProcessManager) {
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             items(sessions) { session ->
+                                // cant just query the db
                                 if (session.project == null) {
                                     SessionItem(
                                         name = session.name,
@@ -232,17 +259,26 @@ fun App(processManager: ProcessManager) {
                                     )
                                 }
                             }
-                            items(projects) { project ->
+                            items(projects) { it ->
                                 ProjectSidebarItem(
-                                    project = project,
+                                    project = it,
                                     selected = sessions.any {
                                         session -> session.id == currentSession &&
-                                            session.project == project.id
+                                            session.project == it.id
                                                             },
                                     onCreateSession = {
                                         // go to newly added session
-                                        val newSession = Session(name = "New Session", project = project.id)
+                                        val newSession = Session(name = "New Session", project = it.id)
                                         sessions = sessions + newSession
+                                        transaction {
+                                            Sessions.insert {
+                                                it[id] = newSession.id
+                                                it[name]   = newSession.name
+                                                it[project] = newSession.project
+                                                it[prompt] = newSession.prompt
+                                            }
+                                        }
+
                                         currentSession = newSession.id
                                         currentMessages = transaction {
                                             Messages.selectAll()
@@ -251,12 +287,12 @@ fun App(processManager: ProcessManager) {
                                         }
 
                                         // start the new process
-                                        processManager.directory = project.directory
+                                        processManager.directory = it.directory
                                         processManager.restart()
                                     }
                                 ) {
                                     sessions.forEach { session ->
-                                        if (session.project == project.id) {
+                                        if (session.project == it.id) {
                                             SessionItem(
                                                 name = session.name,
                                                 selected = session.id == currentSession,
@@ -270,7 +306,7 @@ fun App(processManager: ProcessManager) {
                                                     }
 
                                                     // start the new process
-                                                    processManager.directory = project.directory
+                                                    processManager.directory = it.directory
                                                     processManager.restart()
                                                 }
                                             )
