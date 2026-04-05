@@ -72,7 +72,9 @@ import javax.swing.filechooser.FileNameExtensionFilter
 import java.io.File
 import kotlin.collections.plus
 import org.jetbrains.exposed.sql.ResultRow
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.Table
+import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -280,6 +282,16 @@ fun App(processManager: ProcessManager) {
                                             // start the new process
                                             processManager.directory = null
                                             processManager.restart()
+                                        },
+                                        onDeleteClick = {
+                                            transaction {
+                                                Sessions.deleteWhere { Sessions.id eq session.id }
+                                                Messages.deleteWhere { Messages.session eq session.id }
+                                                sessions = transaction {
+                                                    Sessions.selectAll()
+                                                            .map { Session.from(it) }
+                                                }
+                                            }
                                         }
                                     )
                                 }
@@ -333,6 +345,16 @@ fun App(processManager: ProcessManager) {
                                                     // start the new process
                                                     processManager.directory = it.directory
                                                     processManager.restart()
+                                                },
+                                                onDeleteClick = {
+                                                    transaction {
+                                                        Sessions.deleteWhere { Sessions.id eq session.id }
+                                                        Messages.deleteWhere { Messages.session eq session.id }
+                                                        sessions = transaction {
+                                                            Sessions.selectAll()
+                                                                    .map { Session.from(it) }
+                                                        }
+                                                    }
                                                 }
                                             )
                                         }
@@ -582,6 +604,7 @@ fun SessionItem(
     name: String,
     selected: Boolean,
     onSessionClick: () -> Unit,
+    onDeleteClick: () -> Unit,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
@@ -619,7 +642,7 @@ fun SessionItem(
             )
             Spacer(modifier = Modifier.weight(1f))
             IconButton(
-                onClick = { println("del") },
+                onClick = { onDeleteClick() },
                 modifier = Modifier.alpha(if (isHovered) 1f else 0f)
             ) {
                 Icon(
