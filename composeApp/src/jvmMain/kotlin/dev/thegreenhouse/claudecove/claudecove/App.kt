@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeContentPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -582,9 +583,13 @@ fun SessionItem(
     selected: Boolean,
     onSessionClick: () -> Unit,
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
+
     Card(
         modifier = Modifier
                 .fillMaxWidth()
+                .hoverable(interactionSource)
                 .clickable {
                     onSessionClick()
                 },
@@ -612,9 +617,11 @@ fun SessionItem(
                 text = name,
                 style = MaterialTheme.typography.titleSmall
             )
-            IconButton(onClick = {
-                println("del")
-            }) {
+            Spacer(modifier = Modifier.weight(1f))
+            IconButton(
+                onClick = { println("del") },
+                modifier = Modifier.alpha(if (isHovered) 1f else 0f)
+            ) {
                 Icon(
                     painter = painterResource(Res.drawable.delete),
                     contentDescription = "Delete",
