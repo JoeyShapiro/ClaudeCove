@@ -1,0 +1,114 @@
+{
+  "loading_flavor_text": [
+    {
+      "category": "digging_in",
+      "label": "Digging In / Excavating",
+      "entries": [
+        "Tunneling deeper",
+        "Breaking through the rock face",
+        "Digging through the seam",
+        "Clearing the rubble",
+        "Descending the shaft"
+      ]
+    },
+    {
+      "category": "prospecting",
+      "label": "Prospecting / Searching",
+      "entries": [
+        "Surveying the vein",
+        "Panning for an answer",
+        "Reading the strata",
+        "Mapping the cavern",
+        "Tracing the ore"
+      ]
+    },
+    {
+      "category": "atmosphere",
+      "label": "Atmosphere / Ambiance",
+      "entries": [
+        "Listening to the deep",
+        "Following the echo",
+        "Reading the walls",
+        "Letting dust settle",
+        "Sensing the dark"
+      ]
+    },
+    {
+      "category": "tools",
+      "label": "Tools / Process",
+      "entries": [
+        "Shoring up the tunnel",
+        "Checking the timbers",
+        "Calibrating the lantern",
+        "Adjusting the airflow",
+        "Loading the cart"
+      ]
+    },
+    {
+      "category": "poetic",
+      "label": "Poetic / Abstract",
+      "entries": [
+        "Finding the vein",
+        "Light in the rock",
+        "Patience of stone",
+        "Sifting through the dark",
+        "The mountain thinks"
+      ]
+    },
+    {
+      "category": "whats_down_there",
+      "label": "What's Down There",
+      "entries": [
+        "Something stirs below",
+        "The dark has depth",
+        "The cave remembers",
+        "It was here before the stone",
+        "Older than the mountain"
+      ]
+    },
+    {
+      "category": "wrong_geometry",
+      "label": "Wrong Geometry",
+      "entries": [
+        "The tunnel bends the wrong way",
+        "Counting the walls",
+        "The shaft goes further than it should",
+        "More rooms than there ought to be",
+        "The map doesn't match"
+      ]
+    },
+    {
+      "category": "sensory_wrongness",
+      "label": "Sensory Wrongness",
+      "entries": [
+        "The air tastes of old thought",
+        "The lantern light goes sideways",
+        "Sound travels up here",
+        "The echo answers first",
+        "Pressure without source"
+      ]
+    },
+    {
+      "category": "almost_communication",
+      "label": "Almost Communication",
+      "entries": [
+        "Something is considering you",
+        "The rock has opinions",
+        "Waiting to be understood",
+        "It knows you're listening",
+        "The stone holds its answer"
+      ]
+    },
+    {
+      "category": "cosmic",
+      "label": "Cosmic / Time-Scale",
+      "entries": [
+        "Dreaming in geological time",
+        "Thoughts that predate language",
+        "Sedimented for millennia",
+        "Older words forming",
+        "The deep has been patient"
+      ]
+    }
+  ]
+}
