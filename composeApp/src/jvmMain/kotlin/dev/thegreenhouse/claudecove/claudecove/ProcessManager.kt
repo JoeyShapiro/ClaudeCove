@@ -18,10 +18,11 @@ class ProcessManager(private val scope: CoroutineScope) {
 
     // TODO `newMessage to it`? or it = Message.to(newMessage)
     // TODO figure out bundling
+    // TODO fix folder dialog and use a different one
     // TODO create session when starting a blank chat at start. or just go to last one
     // TODO use session id created from claude
-    // TODO add flavor
     // TODO use streaming
+    // TODO handle tool requests
     fun start(vararg command: String) {
         this.command = command
         process = ProcessBuilder(*command)

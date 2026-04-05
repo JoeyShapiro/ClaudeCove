@@ -72,6 +72,7 @@ import java.util.UUID
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNamingStrategy
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.painterResource
@@ -129,6 +130,7 @@ fun App(processManager: ProcessManager) {
             var sessions by remember { mutableStateOf(listOf<Session>()) }
             var currentSession by remember { mutableStateOf(config.session) }
             var messages by remember { mutableStateOf(listOf<Message>()) }
+            var thinking by remember { mutableStateOf(false) }
             val listState = rememberLazyListState()
             val scope = rememberCoroutineScope()
 
@@ -150,6 +152,7 @@ fun App(processManager: ProcessManager) {
             LaunchedEffect(Unit) {
                 processManager.stdout.collect { line ->
                     try {
+                        println(line)
                         val event = Json.decodeFromString<Claude.Event>(line)
 
                         when (event) {
@@ -180,6 +183,7 @@ fun App(processManager: ProcessManager) {
                                         it[timestamp] = newMessage.timestamp
                                     }
                                 }
+                                thinking = false
                             }
                         }
                     } catch (e: SerializationException) {
@@ -422,6 +426,8 @@ fun App(processManager: ProcessManager) {
                         }
                     }
 
+                    ThinkingFlavorText(thinking)
+
                     Row(
                         modifier = Modifier
                                 .fillMaxWidth()
@@ -449,6 +455,7 @@ fun App(processManager: ProcessManager) {
                                             val data = json.encodeToString(prompt)
 
                                             processManager.sendLine(data)
+                                            thinking = true
                                             val newMessage = Message(
                                                 session = currentSession,
                                                 text = input,
@@ -825,6 +832,79 @@ fun formatRelativeTime(timestamp: Long): String {
     }
 }
 
+@Composable
+fun ThinkingFlavorText(isThinking: Boolean) {
+    // i could only use a thinking string and make it empty when not thinking
+    // but that would add extra work and confusion.
+    // i dont need to be that efficient or have others setting it
+    var flavorText by remember { mutableStateOf("") }
+
+    LaunchedEffect(isThinking) {
+        if (isThinking) {
+            while (true) {
+                flavorText = addFlavor()
+                delay(10000L)
+            }
+        }
+    }
+
+    if (isThinking) {
+        Text(
+            text = "$flavorText...", // $agent is
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
+        )
+    }
+}
+
+fun addFlavor(): String {
+    val flavorTexts = listOf(
+        "Tunneling deeper",
+        "Breaking through the rock face",
+        "Digging through the seam",
+        "Clearing the rubble",
+        "Descending the shaft",
+        "Surveying the vein",
+        "Panning for an answer",
+        "Reading the strata",
+        "Mapping the cavern",
+        "Tracing the ore",
+        "Following the echo",
+        "Letting dust settle",
+        "Sensing the dark",
+        "Shoring up the tunnel",
+        "Checking the timbers",
+        "Calibrating the lantern",
+        "Loading the cart",
+        "Finding the vein",
+        "Light in the rock",
+        "Patience of stone",
+        "Sifting through the dark",
+        "The mountain thinks",
+        "Something stirs below",
+        "The dark has depth",
+        "The cave remembers",
+        "It was here before the stone",
+        "Older than the mountain",
+        "The tunnel bends the wrong way",
+        "Counting the walls",
+        "The shaft goes further than it should",
+        "More rooms than there ought to be",
+        "The map doesn't match",
+        "Something is considering you",
+        "The rock has opinions",
+        "Waiting to be understood",
+        "It knows you're listening",
+        "The stone holds its answer",
+        "Dreaming in geological time",
+        "Sedimented for millennia",
+        "Older words forming",
+        "The deep has been patient"
+    )
+
+    val index = flavorTexts.indices.random()
+    return flavorTexts[index]
+}
 
 suspend fun openFilePicker(
     title: String = "Select a file",
