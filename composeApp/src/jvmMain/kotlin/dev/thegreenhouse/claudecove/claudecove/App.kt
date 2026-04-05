@@ -253,7 +253,7 @@ fun App(processManager: ProcessManager) {
                                     }
 
                                     currentSession = newSession.id
-                                    config.setSession(currentSession)
+                                    config.upSession(currentSession)
                                     messages = transaction {
                                         Messages.selectAll()
                                                 .where { Messages.session eq currentSession }
@@ -292,7 +292,7 @@ fun App(processManager: ProcessManager) {
                                         onSessionClick = {
                                             // go to other session
                                             currentSession = session.id
-                                            config.setSession(currentSession)
+                                            config.upSession(currentSession)
                                             messages = transaction {
                                                 Messages.selectAll()
                                                         .where { Messages.session eq currentSession }
@@ -337,7 +337,7 @@ fun App(processManager: ProcessManager) {
                                         }
 
                                         currentSession = newSession.id
-                                        config.setSession(currentSession)
+                                        config.upSession(currentSession)
                                         messages = transaction {
                                             Messages.selectAll()
                                                     .where { Messages.session eq currentSession }
@@ -357,7 +357,7 @@ fun App(processManager: ProcessManager) {
                                                 onSessionClick = {
                                                     // go to other session
                                                     currentSession = session.id
-                                                    config.setSession(currentSession)
+                                                    config.upSession(currentSession)
                                                     messages = transaction {
                                                         Messages.selectAll()
                                                                 .where { Messages.session eq currentSession }
@@ -621,11 +621,11 @@ object Messages : Table("messages") {
     override val primaryKey = PrimaryKey(Projects.id)
 }
 
-class Configuration (
-    var session: String,
-    var exe: File? = null,
-) {
-    fun setSession(value: String) {
+class Configuration(session: String, exe: File? = null) {
+    var session: String = ""
+    var exe: File? = null
+
+    fun upSession(value: String) {
         transaction {
             Settings.upsert {
                 it[Settings.name] = "session"

@@ -26,7 +26,7 @@ fun main() = application {
     Database.connect("jdbc:sqlite:ClaudeCode.sqlite", driver = "org.sqlite.JDBC")
     transaction {
         // CREATE TABLE IF NOT EXISTS
-        SchemaUtils.create(Projects, Sessions, Messages)
+        SchemaUtils.create(Projects, Sessions, Messages, Settings)
         // additive migrations
         // SchemaUtils.createMissingTablesAndColumns(Users, Posts)
     }
