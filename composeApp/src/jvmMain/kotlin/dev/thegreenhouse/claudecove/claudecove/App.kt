@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -58,6 +59,13 @@ import claudecove.composeapp.generated.resources.chat_add
 import claudecove.composeapp.generated.resources.copy
 import claudecove.composeapp.generated.resources.delete
 import claudecove.composeapp.generated.resources.folder_new
+import com.mikepenz.markdown.compose.components.markdownComponents
+import com.mikepenz.markdown.compose.elements.MarkdownHighlightedCodeBlock
+import com.mikepenz.markdown.compose.elements.MarkdownHighlightedCodeFence
+import com.mikepenz.markdown.m3.Markdown
+import com.mikepenz.markdown.m3.markdownColor
+import dev.snipme.highlights.Highlights
+import dev.snipme.highlights.model.SyntaxThemes
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerializationException
 import java.util.UUID
@@ -66,6 +74,8 @@ import kotlinx.serialization.json.JsonNamingStrategy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import org.jetbrains.compose.resources.painterResource
 import javax.swing.JFileChooser
 import javax.swing.filechooser.FileNameExtensionFilter
@@ -703,6 +713,10 @@ fun ChatBubble(message: Message) {
     val clipboardManager = LocalClipboardManager.current
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
+    val isDarkTheme = isSystemInDarkTheme()
+    val highlightsBuilder = remember(isDarkTheme) {
+        Highlights.Builder().theme(SyntaxThemes.atom(darkMode = isDarkTheme))
+    }
 
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
         val bubbleMaxWidth = maxWidth * 0.75f
@@ -722,11 +736,30 @@ fun ChatBubble(message: Message) {
                         .padding(horizontal = 12.dp, vertical = 8.dp)
             ) {
                 Column {
-                    // TODO use markdown and only render as markdown when streaming is done
                     SelectionContainer {
-                        Text(
-                            text = message.text,
-                            color = MaterialTheme.colorScheme.onPrimary
+                        Markdown(
+                            content = message.text,
+                            colors = markdownColor(
+                                text = MaterialTheme.colorScheme.onPrimary
+                            ),
+                            components = markdownComponents(
+                                codeBlock = {
+                                    MarkdownHighlightedCodeBlock(
+                                        content = it.content,
+                                        node = it.node,
+                                        highlightsBuilder = highlightsBuilder,
+                                        showHeader = true,
+                                    )
+                                },
+                                codeFence = {
+                                    MarkdownHighlightedCodeFence(
+                                        content = it.content,
+                                        node = it.node,
+                                        highlightsBuilder = highlightsBuilder,
+                                        showHeader = true,
+                                    )
+                                },
+                            )
                         )
                     }
 
