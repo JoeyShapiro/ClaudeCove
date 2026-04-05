@@ -26,7 +26,6 @@ kotlin {
             implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.10.0")
             implementation("com.mikepenz:multiplatform-markdown-renderer-m3:0.39.2")
             implementation("com.mikepenz:multiplatform-markdown-renderer-code:0.39.2")
-            implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.0")
 
             implementation("org.jetbrains.exposed:exposed-core:$exposedVersion")
             implementation("org.jetbrains.exposed:exposed-jdbc:$exposedVersion")

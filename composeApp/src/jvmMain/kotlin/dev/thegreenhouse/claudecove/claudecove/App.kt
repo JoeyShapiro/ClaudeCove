@@ -74,8 +74,6 @@ import kotlinx.serialization.json.JsonNamingStrategy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 import org.jetbrains.compose.resources.painterResource
 import javax.swing.JFileChooser
 import javax.swing.filechooser.FileNameExtensionFilter
@@ -90,6 +88,12 @@ import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.update
 import org.jetbrains.exposed.sql.upsert
+import java.time.Duration
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 
 @OptIn(ExperimentalSerializationApi::class)
 @Composable
@@ -763,31 +767,64 @@ fun ChatBubble(message: Message) {
                         )
                     }
 
-                    IconButton(
-                        onClick = {
-                            clipboardManager.setText(
-                                AnnotatedString(
-                                    message.text
+                    Row {
+                        Text(
+                            text = formatRelativeTime(message.timestamp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.background.copy(alpha = 0.5f),
+                        )
+                        Spacer(modifier = Modifier.weight(1f))
+                        IconButton(
+                            onClick = {
+                                clipboardManager.setText(
+                                    AnnotatedString(
+                                        message.text
+                                    )
+                                )
+                            },
+                            modifier = Modifier
+                                    .size(24.dp)
+                                    .alpha(if (isHovered) 1f else 0f)
+                        ) {
+                            Icon(
+                                painter = painterResource(Res.drawable.copy),
+                                contentDescription = "Copy",
+                                tint = MaterialTheme.colorScheme.onPrimary.copy(
+                                    alpha = 0.7f
                                 )
                             )
-                        },
-                        modifier = Modifier
-                                .align(Alignment.End)
-                                .alpha(if (isHovered) 1f else 0f)
-                    ) {
-                        Icon(
-                            painter = painterResource(Res.drawable.copy),
-                            contentDescription = "Copy",
-                            tint = MaterialTheme.colorScheme.onPrimary.copy(
-                                alpha = 0.7f
-                            )
-                        )
+                        }
                     }
                 }
             }
         }
     }
 }
+
+fun formatRelativeTime(timestamp: Long): String {
+    // TODO use kotlin instead
+    val t = Instant.ofEpochMilli(timestamp)
+    val now = Instant.now()
+    val duration = Duration.between(t, now)
+    val seconds = duration.seconds
+
+    return when {
+        seconds < 5       -> "Just now"
+        seconds < 60      -> "${seconds}s ago"
+        seconds < 3_600   -> "${duration.toMinutes()}m ago"
+        seconds < 86_400  -> "${duration.toHours()}h ago"
+        else -> {
+            val date = t.atZone(ZoneId.systemDefault()).toLocalDate()
+            val today = LocalDate.now()
+            when (val days = ChronoUnit.DAYS.between(date, today)) {
+                1L   -> "Yesterday"
+                in 2..6 -> "${days}d ago"
+                else -> date.format(DateTimeFormatter.ofPattern("MMM d, yyyy"))
+            }
+        }
+    }
+}
+
 
 suspend fun openFilePicker(
     title: String = "Select a file",
