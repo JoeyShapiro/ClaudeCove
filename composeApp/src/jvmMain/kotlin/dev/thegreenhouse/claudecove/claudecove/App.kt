@@ -32,9 +32,10 @@ import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -51,6 +52,11 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import claudecove.composeapp.generated.resources.Res
+import claudecove.composeapp.generated.resources.chat_add
+import claudecove.composeapp.generated.resources.copy
+import claudecove.composeapp.generated.resources.delete
+import claudecove.composeapp.generated.resources.folder_new
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerializationException
 import java.util.UUID
@@ -59,6 +65,7 @@ import kotlinx.serialization.json.JsonNamingStrategy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.jetbrains.compose.resources.painterResource
 import javax.swing.JFileChooser
 import javax.swing.filechooser.FileNameExtensionFilter
 import java.io.File
@@ -181,7 +188,7 @@ fun App(processManager: ProcessManager) {
                                         .background(MaterialTheme.colorScheme.secondaryContainer)
                                         .padding(horizontal = 12.dp, vertical = 14.dp)
                             )
-                            TextButton(
+                            IconButton(
                                 onClick = {
                                     scope.launch {
                                         val folder = openFilePicker(title = "Select Working Directory")
@@ -202,15 +209,15 @@ fun App(processManager: ProcessManager) {
                                     }
                                 }
                             ) {
-                                Text(
-                                    "Add",
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(
+                                Icon(
+                                    painter = painterResource(Res.drawable.folder_new),
+                                    contentDescription = "Add",
+                                    tint = MaterialTheme.colorScheme.onSecondaryContainer.copy(
                                         alpha = 0.7f
                                     )
                                 )
                             }
-                            TextButton(
+                            IconButton(
                                 onClick = {
                                     // go to newly added session
                                     val newSession = Session(name = "New Session")
@@ -236,10 +243,10 @@ fun App(processManager: ProcessManager) {
                                     processManager.restart()
                                 }
                             ) {
-                                Text(
-                                    "Chat",
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(
+                                Icon(
+                                    painter = painterResource(Res.drawable.chat_add),
+                                    contentDescription = "Chat",
+                                    tint = MaterialTheme.colorScheme.onSecondaryContainer.copy(
                                         alpha = 0.7f
                                     )
                                 )
@@ -457,15 +464,15 @@ fun ProjectSidebarItem(
                     style = MaterialTheme.typography.titleSmall,
                     modifier = Modifier.weight(1f)
                 )
-                TextButton(
+                IconButton(
                     onClick = {
                         onCreateSession(project)
                     }
                 ) {
-                    Text(
-                        "Chat",
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(
+                    Icon(
+                        painter = painterResource(Res.drawable.chat_add),
+                        contentDescription = "Chat",
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer.copy(
                             alpha = 0.7f
                         )
                     )
@@ -605,6 +612,15 @@ fun SessionItem(
                 text = name,
                 style = MaterialTheme.typography.titleSmall
             )
+            IconButton(onClick = {
+                println("del")
+            }) {
+                Icon(
+                    painter = painterResource(Res.drawable.delete),
+                    contentDescription = "Delete",
+                    tint = MaterialTheme.colorScheme.onSurface,
+                )
+            }
         }
     }
 }
@@ -641,7 +657,7 @@ fun ChatBubble(message: Message) {
                         )
                     }
 
-                    TextButton(
+                    IconButton(
                         onClick = {
                             clipboardManager.setText(
                                 AnnotatedString(
@@ -653,10 +669,10 @@ fun ChatBubble(message: Message) {
                                 .align(Alignment.End)
                                 .alpha(if (isHovered) 1f else 0f)
                     ) {
-                        Text(
-                            "Copy",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onPrimary.copy(
+                        Icon(
+                            painter = painterResource(Res.drawable.copy),
+                            contentDescription = "Copy",
+                            tint = MaterialTheme.colorScheme.onPrimary.copy(
                                 alpha = 0.7f
                             )
                         )
