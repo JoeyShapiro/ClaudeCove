@@ -79,6 +79,7 @@ import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.update
+import org.jetbrains.exposed.sql.upsert
 
 @OptIn(ExperimentalSerializationApi::class)
 @Composable
@@ -95,13 +96,25 @@ fun App(processManager: ProcessManager) {
         backgroundColor = MaterialTheme.colorScheme.inversePrimary.copy(alpha = 0.4f)
     )
 
+    val settings = transaction {
+        Settings.selectAll()
+                .associate { it[Settings.name] to it[Settings.value] }
+    }
+    var config by remember { mutableStateOf(
+        Configuration(
+            settings["session"] ?: "",
+            settings["exe"]?.let { File(it) }
+        )
+    ) }
+
+
     MaterialTheme {
         CompositionLocalProvider(LocalTextSelectionColors provides selectionColors) {
             var input by remember { mutableStateOf("") }
             var projects by remember { mutableStateOf(listOf<Project>()) }
             var sessions by remember { mutableStateOf(listOf<Session>()) }
-            var currentSession by remember { mutableStateOf("") }
-            var currentMessages by remember { mutableStateOf(listOf<Message>()) }
+            var currentSession by remember { mutableStateOf(config.session) }
+            var messages by remember { mutableStateOf(listOf<Message>()) }
             val listState = rememberLazyListState()
             val scope = rememberCoroutineScope()
 
@@ -112,6 +125,11 @@ fun App(processManager: ProcessManager) {
             projects = transaction {
                 Projects.selectAll()
                         .map { Project.from(it) }
+            }
+            messages = transaction {
+                Messages.selectAll()
+                        .where { Messages.session eq currentSession }
+                        .map { Message.from(it) }
             }
 
             // Collect stdout
@@ -138,7 +156,7 @@ fun App(processManager: ProcessManager) {
                                     text = event.result,
                                     fromSelf = false
                                 )
-                                currentMessages = currentMessages + newMessage
+                                messages = messages + newMessage
                                 transaction {
                                     Messages.insert {
                                         it[id]        = newMessage.id
@@ -158,9 +176,9 @@ fun App(processManager: ProcessManager) {
                 }
             }
 
-            LaunchedEffect(currentMessages.size) {
-                if (currentMessages.isNotEmpty()) {
-                    listState.animateScrollToItem(currentMessages.lastIndex)
+            LaunchedEffect(messages.size) {
+                if (messages.isNotEmpty()) {
+                    listState.animateScrollToItem(messages.lastIndex)
                 }
             }
 
@@ -235,7 +253,8 @@ fun App(processManager: ProcessManager) {
                                     }
 
                                     currentSession = newSession.id
-                                    currentMessages = transaction {
+                                    config.setSession(currentSession)
+                                    messages = transaction {
                                         Messages.selectAll()
                                                 .where { Messages.session eq currentSession }
                                                 .map { Message.from(it) }
@@ -273,7 +292,8 @@ fun App(processManager: ProcessManager) {
                                         onSessionClick = {
                                             // go to other session
                                             currentSession = session.id
-                                            currentMessages = transaction {
+                                            config.setSession(currentSession)
+                                            messages = transaction {
                                                 Messages.selectAll()
                                                         .where { Messages.session eq currentSession }
                                                         .map { Message.from(it) }
@@ -317,7 +337,8 @@ fun App(processManager: ProcessManager) {
                                         }
 
                                         currentSession = newSession.id
-                                        currentMessages = transaction {
+                                        config.setSession(currentSession)
+                                        messages = transaction {
                                             Messages.selectAll()
                                                     .where { Messages.session eq currentSession }
                                                     .map { Message.from(it) }
@@ -336,7 +357,8 @@ fun App(processManager: ProcessManager) {
                                                 onSessionClick = {
                                                     // go to other session
                                                     currentSession = session.id
-                                                    currentMessages = transaction {
+                                                    config.setSession(currentSession)
+                                                    messages = transaction {
                                                         Messages.selectAll()
                                                                 .where { Messages.session eq currentSession }
                                                                 .map { Message.from(it) }
@@ -381,7 +403,7 @@ fun App(processManager: ProcessManager) {
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         reverseLayout = false
                     ) {
-                        items(items = currentMessages) { message ->
+                        items(items = messages) { message ->
                             ChatBubble(message)
                         }
                     }
@@ -404,7 +426,7 @@ fun App(processManager: ProcessManager) {
                                         ) {
                                             val prompt = Claude.Prompt.new(input)
                                             // generate a title if this is a new session
-                                            if (currentMessages.isEmpty()) {
+                                            if (messages.isEmpty()) {
                                                 val title = Claude.ControlRequest.title(input)
                                                 val data = json.encodeToString(title)
                                                 processManager.sendLine(data)
@@ -418,7 +440,7 @@ fun App(processManager: ProcessManager) {
                                                 text = input,
                                                 fromSelf = true
                                             )
-                                            currentMessages = currentMessages + newMessage
+                                            messages = messages + newMessage
                                             transaction {
                                                 Messages.insert {
                                                     it[id]        = newMessage.id
@@ -597,6 +619,27 @@ object Messages : Table("messages") {
     val timestamp = long("timestamp")
 
     override val primaryKey = PrimaryKey(Projects.id)
+}
+
+class Configuration (
+    var session: String,
+    var exe: File? = null,
+) {
+    fun setSession(value: String) {
+        transaction {
+            Settings.upsert {
+                it[Settings.name] = "session"
+                it[Settings.value] = value
+            }
+        }
+    }
+}
+
+object Settings : Table("settings") {
+    val name      = varchar("name", 128)
+    val value     = varchar("value", 1024)
+
+    override val primaryKey = PrimaryKey(name)
 }
 
 @Composable
