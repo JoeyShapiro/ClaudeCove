@@ -4,12 +4,63 @@ import kotlinx.serialization.Serializable
 import java.io.File
 import java.io.FileNotFoundException
 import java.util.UUID
+import kotlinx.serialization.*
+import kotlinx.serialization.descriptors.buildClassSerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.json.*
 
 class Claude {
+    // Sealed class hierarchy for all your response types
+    @Serializable(with = EventSerializer::class)
+    sealed class Event
+
+    // Custom serializer that pre-parses `type` (and optionally `subtype`)
+    object EventSerializer : KSerializer<Event> {
+        @OptIn(ExperimentalSerializationApi::class)
+        val jsonConfiguration = Json {
+            namingStrategy = JsonNamingStrategy.SnakeCase
+            ignoreUnknownKeys = true   // don't crash if JSON has extra fields
+            isLenient = true           // allows unquoted keys, trailing commas
+            encodeDefaults = true      // include fields that equal their default value
+        }
+
+        override val descriptor = buildClassSerialDescriptor("Event")
+
+        override fun deserialize(decoder: Decoder): Event {
+            val json = (decoder as JsonDecoder).decodeJsonElement().jsonObject
+
+            val type = json["type"]?.jsonPrimitive?.content
+            val subtype = json["subtype"]?.jsonPrimitive?.contentOrNull
+
+            return when {
+                type == "control_response" -> jsonConfiguration.decodeFromJsonElement<ResponseControl>(json)
+                type == "result"           -> jsonConfiguration.decodeFromJsonElement<ResponseResult>(json)
+                else -> throw SerializationException("Unknown event type: $type / $subtype")
+            }
+        }
+
+        override fun serialize(encoder: Encoder, value: Event) {
+            throw UnsupportedOperationException("Serialization not needed")
+        }
+    }
+
     // {"request_id":"dxv71vev7ef","type":"control_request",
     // "request":{"subtype":"generate_session_title","description":"","persist":false}}
     @Serializable
-    data class ControlRequest (val requestId: String, val type: String, val request: Request)
+    data class ControlRequest (val requestId: String, val type: String, val request: Request) {
+        companion object {
+            fun title(description: String) = ControlRequest(
+                requestId = UUID.randomUUID().toString(),
+                type = "control_request",
+                request = Request(
+                    subtype = "generate_session_title",
+                    description = description,
+                    persist = false,
+                )
+            )
+        }
+    }
 
     @Serializable
     data class Request (val subtype: String, val description: String, val persist: Boolean = false)
@@ -42,7 +93,7 @@ class Claude {
     data class Content (val type: String, val text: String)
 
     @Serializable
-    data class Response (
+    data class ResponseResult (
         val type: String,
         val subtype: String,
         val isError: Boolean,
@@ -57,6 +108,24 @@ class Claude {
         val permissionDenials: List<String>,
         val fastModeState: String,
         val uuid: String,
+    ) : Event()
+
+    @Serializable
+    data class ResponseControl(
+        val type: String,
+        val response: ControlResponseResponse,
+    ) : Event()
+
+    @Serializable
+    data class ControlResponseResponse(
+        val subtype: String,
+        val requestId: String,
+        val response: ControlResponseResponseResponse,
+    )
+
+    @Serializable
+    data class ControlResponseResponseResponse(
+        val title: String,
     )
 
     companion object {

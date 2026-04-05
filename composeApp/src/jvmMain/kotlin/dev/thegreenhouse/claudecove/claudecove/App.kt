@@ -68,6 +68,7 @@ import org.jetbrains.exposed.sql.Table
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.jetbrains.exposed.sql.update
 
 @OptIn(ExperimentalSerializationApi::class)
 @Composable
@@ -107,20 +108,36 @@ fun App(processManager: ProcessManager) {
             LaunchedEffect(Unit) {
                 processManager.stdout.collect { line ->
                     try {
-                        val response = json.decodeFromString<Claude.Response>(line)
-                        val newMessage = Message(
-                            session = currentSession,
-                            text = response.result,
-                            fromSelf = false
-                        )
-                        currentMessages = currentMessages + newMessage
-                        transaction {
-                            Messages.insert {
-                                it[id]        = newMessage.id
-                                it[session]   = newMessage.session
-                                it[text]      = newMessage.text
-                                it[fromSelf]  = newMessage.fromSelf
-                                it[timestamp] = newMessage.timestamp
+                        val event = Json.decodeFromString<Claude.Event>(line)
+
+                        when (event) {
+                            is Claude.ResponseControl -> {
+                                transaction {
+                                    Sessions.update({ Sessions.id eq currentSession }) {
+                                        it[name] = event.response.response.title
+                                    }
+                                }
+                                sessions = transaction {
+                                    Sessions.selectAll()
+                                            .map { Session.from(it) }
+                                }
+                            }
+                            is Claude.ResponseResult -> {
+                                val newMessage = Message(
+                                    session = currentSession,
+                                    text = event.result,
+                                    fromSelf = false
+                                )
+                                currentMessages = currentMessages + newMessage
+                                transaction {
+                                    Messages.insert {
+                                        it[id]        = newMessage.id
+                                        it[session]   = newMessage.session
+                                        it[text]      = newMessage.text
+                                        it[fromSelf]  = newMessage.fromSelf
+                                        it[timestamp] = newMessage.timestamp
+                                    }
+                                }
                             }
                         }
                     } catch (e: SerializationException) {
@@ -356,6 +373,13 @@ fun App(processManager: ProcessManager) {
                                             !event.isShiftPressed
                                         ) {
                                             val prompt = Claude.Prompt.new(input)
+                                            // generate a title if this is a new session
+                                            if (currentMessages.isEmpty()) {
+                                                val title = Claude.ControlRequest.title(input)
+                                                val data = json.encodeToString(title)
+                                                processManager.sendLine(data)
+                                            }
+
                                             val data = json.encodeToString(prompt)
 
                                             processManager.sendLine(data)
