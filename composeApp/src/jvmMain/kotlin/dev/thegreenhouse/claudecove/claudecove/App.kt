@@ -78,8 +78,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.painterResource
-import javax.swing.JFileChooser
-import javax.swing.filechooser.FileNameExtensionFilter
 import java.io.File
 import kotlin.collections.plus
 import org.jetbrains.exposed.sql.ResultRow
@@ -926,20 +924,12 @@ fun addFlavor(): String {
 
 suspend fun openFilePicker(
     title: String = "Select a file",
-    filter: FileNameExtensionFilter? = null
 ): File? = withContext(Dispatchers.IO) {
-    var result: File? = null
-    val chooser = JFileChooser().apply {
-        dialogTitle = title
-        fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
-        isMultiSelectionEnabled = false
-        filter?.let { fileFilter = it }
-    }
-
-    val returnCode = chooser.showOpenDialog(null)
-    if (returnCode == JFileChooser.APPROVE_OPTION) {
-        result = chooser.selectedFile
-    }
-
-    result
+    System.setProperty("apple.awt.fileDialogForDirectories", "true")
+    val dialog = java.awt.FileDialog(null as java.awt.Frame?, title, java.awt.FileDialog.LOAD)
+    dialog.isVisible = true
+    val dir = dialog.directory
+    val file = dialog.file
+    System.setProperty("apple.awt.fileDialogForDirectories", "false")
+    if (dir != null && file != null) File(dir, file) else null
 }
