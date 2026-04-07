@@ -50,6 +50,32 @@ compose.desktop {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "dev.thegreenhouse.claudecove.claudecove"
             packageVersion = "1.0.0"
+
+            targetFormats(
+                TargetFormat.Dmg,       // macOS
+                TargetFormat.Msi,       // Windows installer
+                TargetFormat.Deb,       // Linux .deb
+                TargetFormat.Exe,       // Windows standalone exe
+                TargetFormat.AppImage,  // Linux portable
+            )
+
+            // 158.3
+            modules("java.sql")
+
+            windows {
+                menuGroup = "YourApp"
+                upgradeUuid = "your-uuid-here"  // stable UUID for MSI upgrades
+                dirChooser = true
+                perUserInstall = true
+                iconFile.set(project.file("src/desktopMain/resources/icon.ico"))
+            }
+            macOS {
+                bundleID = "com.yourapp.desktop"
+//                iconFile.set(project.file("src/desktopMain/resources/icon.icns"))
+            }
+            linux {
+//                iconFile.set(project.file("src/desktopMain/resources/icon.png"))
+            }
         }
     }
 }
