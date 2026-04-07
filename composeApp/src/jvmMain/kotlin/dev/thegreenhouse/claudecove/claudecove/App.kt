@@ -33,9 +33,11 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -106,11 +108,6 @@ fun App(processManager: ProcessManager) {
         encodeDefaults = true      // include fields that equal their default value
     }
 
-    val selectionColors = TextSelectionColors(
-        handleColor = MaterialTheme.colorScheme.inversePrimary,
-        backgroundColor = MaterialTheme.colorScheme.inversePrimary.copy(alpha = 0.4f)
-    )
-
     val settings = transaction {
         Settings.selectAll()
                 .associate { it[Settings.name] to it[Settings.value] }
@@ -118,12 +115,24 @@ fun App(processManager: ProcessManager) {
     var config by remember { mutableStateOf(
         Configuration(
             settings["session"] ?: "",
-            settings["exe"]?.let { File(it) }
+            settings["exe"]?.let { File(it) },
+            settings["theme"]
         )
     ) }
 
+    val systemDark = isSystemInDarkTheme()
+    val isDark = when (config.theme) {
+        "dark"  -> true
+        "light" -> false
+        else    -> systemDark
+    }
+    val colorScheme = if (isDark) darkColorScheme() else lightColorScheme()
 
-    MaterialTheme {
+    MaterialTheme(colorScheme = colorScheme) {
+        val selectionColors = TextSelectionColors(
+            handleColor = MaterialTheme.colorScheme.inversePrimary,
+            backgroundColor = MaterialTheme.colorScheme.inversePrimary.copy(alpha = 0.4f)
+        )
         CompositionLocalProvider(LocalTextSelectionColors provides selectionColors) {
             var input by remember { mutableStateOf("") }
             var projects by remember { mutableStateOf(listOf<Project>()) }
@@ -422,7 +431,7 @@ fun App(processManager: ProcessManager) {
                         reverseLayout = false
                     ) {
                         items(items = messages) { message ->
-                            ChatBubble(message)
+                            ChatBubble(message, isDark)
                         }
                     }
 
@@ -642,14 +651,24 @@ object Messages : Table("messages") {
     override val primaryKey = PrimaryKey(Projects.id)
 }
 
-class Configuration(session: String, exe: File? = null) {
-    var session: String = ""
-    var exe: File? = null
+class Configuration(session: String, exe: File? = null, theme: String? = null) {
+    var session: String = session
+    var exe: File? = exe
+    var theme: String = theme ?: ""
 
     fun upSession(value: String) {
         transaction {
             Settings.upsert {
                 it[Settings.name] = "session"
+                it[Settings.value] = value
+            }
+        }
+    }
+
+    fun upTheme(value: String) {
+        transaction {
+            Settings.upsert {
+                it[Settings.name] = "theme"
                 it[Settings.value] = value
             }
         }
@@ -720,13 +739,12 @@ fun SessionItem(
 }
 
 @Composable
-fun ChatBubble(message: Message) {
+fun ChatBubble(message: Message, isDarkMode: Boolean) {
     val clipboardManager = LocalClipboardManager.current
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
-    val isDarkTheme = isSystemInDarkTheme()
-    val highlightsBuilder = remember(isDarkTheme) {
-        Highlights.Builder().theme(SyntaxThemes.atom(darkMode = isDarkTheme))
+    val highlightsBuilder = remember(isDarkMode) {
+        Highlights.Builder().theme(SyntaxThemes.atom(darkMode = isDarkMode))
     }
 
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {

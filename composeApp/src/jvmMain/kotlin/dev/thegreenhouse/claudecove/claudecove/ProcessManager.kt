@@ -17,6 +17,7 @@ class ProcessManager(private val scope: CoroutineScope) {
     val stdout = MutableSharedFlow<String>()
 
     // TODO `newMessage to it`? or it = Message.to(newMessage)
+    // TODO ping when done
     // TODO fix folder dialog and use a different one
     // TODO create session when starting a blank chat at start. or just go to last one
     // TODO use session id created from claude
