@@ -18,7 +18,6 @@ class ProcessManager(private val scope: CoroutineScope) {
 
     // TODO `newMessage to it`? or it = Message.to(newMessage)
     // TODO ping when done
-    // TODO create session when starting a blank chat at start
     // TODO only add modules i need. if im not already
     // TODO use session id created from claude
     // TODO use streaming

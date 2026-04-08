@@ -531,6 +531,23 @@ fun App(processManager: ProcessManager) {
                                         if (event.key == Key.Enter && event.type == KeyEventType.KeyUp &&
                                             !event.isShiftPressed
                                         ) {
+                                            if (currentSession.isEmpty()) {
+                                                val newSession = Session(name = "New Session")
+                                                sessions = sessions + newSession
+                                                transaction {
+                                                    Sessions.insert {
+                                                        it[id] = newSession.id
+                                                        it[name] = newSession.name
+                                                        it[project] = newSession.project
+                                                        it[prompt] = newSession.prompt
+                                                    }
+                                                }
+                                                currentSession = newSession.id
+                                                config.upSession(currentSession)
+                                                processManager.directory = null
+                                                processManager.restart()
+                                            }
+
                                             val prompt = Claude.Prompt.new(input)
                                             // generate a title if this is a new session
                                             if (messages.isEmpty()) {
