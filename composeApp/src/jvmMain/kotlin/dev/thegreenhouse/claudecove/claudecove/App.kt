@@ -41,11 +41,13 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.isShiftPressed
@@ -124,7 +126,39 @@ fun App(processManager: ProcessManager) {
         "light" -> false
         else    -> systemDark
     }
-    val colorScheme = if (isDark) darkColorScheme() else lightColorScheme()
+    val claudeLight = lightColorScheme(
+        background            = Color(0xFFFAF9F5),
+        surface               = Color(0xFFFFFFFF),
+        surfaceVariant        = Color(0xFFEFEBE4),
+        primaryContainer      = Color(0xFFF5F3EE),
+        secondaryContainer    = Color(0xFFE8E4DB),
+        onSecondaryContainer  = Color(0xFF2D2A26),
+        primary               = Color(0xFFCC7B5A),
+        onPrimary             = Color(0xFFFFFFFF),
+        inversePrimary        = Color(0xFFE8A98E),
+        tertiaryContainer     = Color(0xFFE4D9CF),
+        onTertiaryContainer   = Color(0xFF3D2E25),
+        onSurface             = Color(0xFF2D2A26),
+        onSurfaceVariant      = Color(0xFF5C5852),
+        onBackground          = Color(0xFF2D2A26),
+    )
+    val claudeDark = darkColorScheme(
+        background            = Color(0xFF1A1714),
+        surface               = Color(0xFF211E1A),
+        surfaceVariant        = Color(0xFF2A2520),
+        primaryContainer      = Color(0xFF1A1714),
+        secondaryContainer    = Color(0xFF252018),
+        onSecondaryContainer  = Color(0xFFE8E4DC),
+        primary               = Color(0xFFCC7B5A),
+        onPrimary             = Color(0xFFFFFFFF),
+        inversePrimary        = Color(0xFF8C4B2E),
+        tertiaryContainer     = Color(0xFF3D2E25),
+        onTertiaryContainer   = Color(0xFFE8DDD4),
+        onSurface             = Color(0xFFE8E4DC),
+        onSurfaceVariant      = Color(0xFFADA9A3),
+        onBackground          = Color(0xFFE8E4DC),
+    )
+    val colorScheme = if (isDark) claudeDark else claudeLight
 
     MaterialTheme(colorScheme = colorScheme) {
         val selectionColors = TextSelectionColors(
@@ -444,6 +478,17 @@ fun App(processManager: ProcessManager) {
                         TextField(
                             input,
                             label = { Text("prompt") },
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor   = MaterialTheme.colorScheme.surfaceVariant,
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                focusedIndicatorColor   = MaterialTheme.colorScheme.primary,
+                                unfocusedIndicatorColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
+                                focusedTextColor        = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor      = MaterialTheme.colorScheme.onSurface,
+                                focusedLabelColor       = MaterialTheme.colorScheme.primary,
+                                unfocusedLabelColor     = MaterialTheme.colorScheme.onSurfaceVariant,
+                                cursorColor             = MaterialTheme.colorScheme.primary,
+                            ),
                             modifier = Modifier
                                     .fillMaxWidth()
                                     .heightIn(min = 150.dp)
