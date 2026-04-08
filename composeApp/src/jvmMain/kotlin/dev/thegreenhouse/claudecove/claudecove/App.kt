@@ -58,11 +58,13 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import claudecove.composeapp.generated.resources.Res
 import claudecove.composeapp.generated.resources.chat_add
 import claudecove.composeapp.generated.resources.copy
 import claudecove.composeapp.generated.resources.delete
 import claudecove.composeapp.generated.resources.folder_new
+import claudecove.composeapp.generated.resources.gear
 import com.mikepenz.markdown.compose.components.markdownComponents
 import com.mikepenz.markdown.compose.elements.MarkdownHighlightedCodeBlock
 import com.mikepenz.markdown.compose.elements.MarkdownHighlightedCodeFence
@@ -75,6 +77,7 @@ import kotlinx.serialization.SerializationException
 import java.util.UUID
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNamingStrategy
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -172,6 +175,7 @@ fun App(processManager: ProcessManager) {
             var currentSession by remember { mutableStateOf(config.session) }
             var messages by remember { mutableStateOf(listOf<Message>()) }
             var thinking by remember { mutableStateOf(false) }
+            var showSettings by remember { mutableStateOf(false) }
             val listState = rememberLazyListState()
             val scope = rememberCoroutineScope()
 
@@ -338,7 +342,8 @@ fun App(processManager: ProcessManager) {
 
                         LazyColumn(
                             modifier = Modifier
-                                    .fillMaxSize()
+                                    .weight(1f)
+                                    .fillMaxWidth()
                                     .padding(8.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
@@ -443,7 +448,37 @@ fun App(processManager: ProcessManager) {
                                 }
                             }
                         }
+
+                        Divider(color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.12f))
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp),
+                            horizontalArrangement = Arrangement.Start
+                        ) {
+                            IconButton(onClick = { showSettings = true }) {
+                                Icon(
+                                    painter = painterResource(Res.drawable.gear),
+                                    contentDescription = "Settings",
+                                    tint = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+                                )
+                            }
+                        }
                     }
+                }
+
+                if (showSettings) {
+                    SettingsDialog(
+                        config = config,
+                        onDismiss = { showSettings = false },
+                        onExeChange = { file ->
+                            config.upExe(file)
+                            config = Configuration(config.session, file, config.theme)
+                        },
+                        onThemeChange = { theme ->
+                            config.upTheme(theme)
+                            config = Configuration(config.session, config.exe, theme)
+                        },
+                        scope = scope
+                    )
                 }
 
                 Column(
@@ -708,6 +743,19 @@ class Configuration(session: String, exe: File? = null, theme: String? = null) {
         }
     }
 
+    fun upExe(file: File?) {
+        transaction {
+            if (file == null) {
+                Settings.deleteWhere { Settings.name eq "exe" }
+            } else {
+                Settings.upsert {
+                    it[Settings.name] = "exe"
+                    it[Settings.value] = file.absolutePath
+                }
+            }
+        }
+    }
+
     fun upTheme(value: String) {
         transaction {
             Settings.upsert {
@@ -776,6 +824,140 @@ fun SessionItem(
                     contentDescription = "Delete",
                     tint = MaterialTheme.colorScheme.onSurface,
                 )
+            }
+        }
+    }
+}
+
+@Composable
+fun SettingsDialog(
+    config: Configuration,
+    onDismiss: () -> Unit,
+    onExeChange: (File?) -> Unit,
+    onThemeChange: (String) -> Unit,
+    scope: CoroutineScope,
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            shape = RoundedCornerShape(20.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp).widthIn(min = 320.dp, max = 480.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                Text(
+                    text = "Settings",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
+
+                // Theme
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Theme",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("" to "System", "light" to "Light", "dark" to "Dark").forEach { (value, label) ->
+                            val selected = config.theme == value
+                            Card(
+                                modifier = Modifier.clickable { onThemeChange(value) },
+                                shape = RoundedCornerShape(10.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer
+                                                    else MaterialTheme.colorScheme.surfaceVariant
+                                )
+                            ) {
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = if (selected) MaterialTheme.colorScheme.primary
+                                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
+
+                // Claude executable
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Claude Executable",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = config.exe?.absolutePath ?: "Not set — using PATH",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (config.exe != null) 1f else 0.45f),
+                            modifier = Modifier.weight(1f)
+                        )
+                        Card(
+                            modifier = Modifier.clickable {
+                                scope.launch {
+                                    val file = openFilePicker(title = "Select Claude Executable")
+                                    if (file != null) onExeChange(file)
+                                }
+                            },
+                            shape = RoundedCornerShape(10.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        ) {
+                            Text(
+                                text = "Browse",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                            )
+                        }
+                        if (config.exe != null) {
+                            Card(
+                                modifier = Modifier.clickable { onExeChange(null) },
+                                shape = RoundedCornerShape(10.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                            ) {
+                                Text(
+                                    text = "Clear",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Card(
+                        modifier = Modifier.clickable { onDismiss() },
+                        shape = RoundedCornerShape(10.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                    ) {
+                        Text(
+                            text = "Done",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp)
+                        )
+                    }
+                }
             }
         }
     }
