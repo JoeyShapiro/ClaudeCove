@@ -31,12 +31,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.LocalTextSelectionColors
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.text.selection.TextSelectionColors
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -175,6 +178,7 @@ fun App(processManager: ProcessManager) {
             var currentSession by remember { mutableStateOf(config.session) }
             var messages by remember { mutableStateOf(listOf<Message>()) }
             var thinking by remember { mutableStateOf(false) }
+            var askingPermission by remember { mutableStateOf(true) }
             var showSettings by remember { mutableStateOf(false) }
             val listState = rememberLazyListState()
             val scope = rememberCoroutineScope()
@@ -197,14 +201,13 @@ fun App(processManager: ProcessManager) {
             LaunchedEffect(Unit) {
                 processManager.stdout.collect { line ->
                     try {
-                        println(line)
                         val event = Json.decodeFromString<Claude.Event>(line)
 
                         when (event) {
                             is Claude.ResponseControl -> {
                                 transaction {
                                     Sessions.update({ Sessions.id eq currentSession }) {
-                                        it[name] = event.response.response.title
+                                        it[name] = event.response.response.title ?: ""
                                     }
                                 }
                                 sessions = transaction {
@@ -229,6 +232,11 @@ fun App(processManager: ProcessManager) {
                                     }
                                 }
                                 thinking = false
+                            }
+                            is Claude.RequestControl -> {
+                                val ok = Claude.ResponseControl.newContinue(event.requestId)
+                                val data = json.encodeToString(ok)
+                                processManager.sendLine(data)
                             }
                         }
                     } catch (e: SerializationException) {
@@ -504,6 +512,14 @@ fun App(processManager: ProcessManager) {
 
                     ThinkingFlavorText(thinking)
 
+                    if (askingPermission) {
+                        PermissionPrompt(
+                            onYes = { /* TODO */ },
+                            onNo = { /* TODO */ },
+                            onYesToAll = { /* TODO */ }
+                        )
+                    }
+
                     Row(
                         modifier = Modifier
                                 .fillMaxWidth()
@@ -567,6 +583,7 @@ fun App(processManager: ProcessManager) {
                                             )
                                             messages = messages + newMessage
                                             transaction {
+                                                // TODO `newMessage to it`? or it = Message.to(newMessage)
                                                 Messages.insert {
                                                     it[id]        = newMessage.id
                                                     it[session]   = newMessage.session
@@ -587,6 +604,54 @@ fun App(processManager: ProcessManager) {
                             onValueChange = { input = it }
                         )
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PermissionPrompt(
+    onYes: () -> Unit,
+    onNo: () -> Unit,
+    onYesToAll: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                "Claude is requesting permission to perform an action.",
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(onClick = onYes) {
+                    Text("Yes")
+                }
+                OutlinedButton(onClick = onNo) {
+                    Text("No")
+                }
+                Button(
+                    onClick = onYesToAll,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    )
+                ) {
+                    Text("Yes to All")
                 }
             }
         }

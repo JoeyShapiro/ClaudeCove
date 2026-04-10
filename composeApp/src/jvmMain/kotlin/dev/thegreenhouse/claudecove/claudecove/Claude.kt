@@ -34,6 +34,7 @@ class Claude {
             val subtype = json["subtype"]?.jsonPrimitive?.contentOrNull
 
             return when {
+                type == "control_request"  -> jsonConfiguration.decodeFromJsonElement<RequestControl>(json)
                 type == "control_response" -> jsonConfiguration.decodeFromJsonElement<ResponseControl>(json)
                 type == "result"           -> jsonConfiguration.decodeFromJsonElement<ResponseResult>(json)
                 else -> throw SerializationException("Unknown event type: $type / $subtype")
@@ -114,7 +115,21 @@ class Claude {
     data class ResponseControl(
         val type: String,
         val response: ControlResponseResponse,
-    ) : Event()
+    ) : Event() {
+        companion object {
+            fun newContinue(requestId: String) = ResponseControl(
+                type = "control_response",
+                response = ControlResponseResponse(
+                    subtype = "success",
+                    requestId = requestId,
+                    response = ControlResponseResponseResponse(
+                        `continue` = true,
+                    )
+                )
+            )
+        }
+
+    }
 
     @Serializable
     data class ControlResponseResponse(
@@ -125,7 +140,40 @@ class Claude {
 
     @Serializable
     data class ControlResponseResponseResponse(
-        val title: String,
+        val title: String? = null,
+        val `continue`: Boolean? = null,
+    )
+
+    @Serializable
+    data class RequestControl (
+        val type: String,
+        val requestId: String,
+        val request: AgentRequest,
+    ) : Event()
+
+    @Serializable
+    data class AgentRequest (
+        val subtype: String,
+        val callbackId: String,
+        val input: AgentInput,
+        val toolUseId: String,
+    )
+
+    @Serializable
+    data class AgentInput(
+        val sessionId: String,
+        val transcriptPath: String,
+        val cwd: String,
+        val permissionMode: String,
+        val hookEventName: String,
+        val toolName: String,
+        val toolInput: ToolInput,
+        val toolUseId: String,
+    )
+
+    @Serializable
+    data class ToolInput(
+        val filePath: String,
     )
 
     companion object {

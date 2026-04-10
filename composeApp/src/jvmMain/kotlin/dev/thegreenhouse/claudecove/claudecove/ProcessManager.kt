@@ -15,10 +15,9 @@ class ProcessManager(private val scope: CoroutineScope) {
     var directory: File? = null
 
     val stdout = MutableSharedFlow<String>()
-
-    // TODO `newMessage to it`? or it = Message.to(newMessage)
+    
     // TODO ping when done
-    // TODO only add modules i need. if im not already
+    // TODO add buddy
     // TODO use session id created from claude
     // TODO use streaming
     // TODO handle tool requests
