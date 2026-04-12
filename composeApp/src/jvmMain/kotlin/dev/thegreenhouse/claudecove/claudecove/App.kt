@@ -125,6 +125,25 @@ fun App(processManager: ProcessManager) {
         )
     ) }
 
+    // long process to set the current directory
+    transaction {
+        val session = Sessions.selectAll()
+                .where { Sessions.id eq config.session }
+                .map { Session.from(it) }
+                .firstOrNull()
+        session?.let { session ->
+            session.project?.let { projectId ->
+                Projects.selectAll()
+                        .where { Projects.id eq projectId }
+                        .map { Project.from(it) }
+                        .firstOrNull()?.let { project ->
+                            processManager.directory = project.directory
+                            processManager.restart()
+                        }
+            }
+        }
+    }
+
     val systemDark = isSystemInDarkTheme()
     val isDark = when (config.theme) {
         "dark"  -> true
@@ -258,7 +277,6 @@ fun App(processManager: ProcessManager) {
                             }
                         }
                     } catch (e: SerializationException) {
-                        // TODO catch Expected JsonPrimitive, but had JsonObject as the serialized body of string at element: $.0
                         println(e.localizedMessage)
                         println(line)
                         println("------------------------------")

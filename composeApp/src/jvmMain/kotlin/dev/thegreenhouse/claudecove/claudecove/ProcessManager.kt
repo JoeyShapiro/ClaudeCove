@@ -16,8 +16,8 @@ class ProcessManager(private val scope: CoroutineScope) {
 
     val stdout = MutableSharedFlow<String>()
 
+    // TODO fail if folder doesnt exist
     // TODO ping when done
-    // TODO set current dir on restart
     // TODO add buddy
     // TODO use session id created from claude
     // TODO use streaming

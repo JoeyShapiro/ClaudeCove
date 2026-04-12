@@ -14,6 +14,14 @@ fun main() = application {
     val exe = Claude.findClaude()
             .getOrThrow()
 
+    Database.connect("jdbc:sqlite:ClaudeCode.sqlite", driver = "org.sqlite.JDBC")
+    transaction {
+        // CREATE TABLE IF NOT EXISTS
+        SchemaUtils.create(Projects, Sessions, Messages, Settings)
+        // additive migrations
+        // SchemaUtils.createMissingTablesAndColumns(Users, Posts)
+    }
+
     val processManager = remember {
         ProcessManager(scope).also {
             it.start(
@@ -21,14 +29,6 @@ fun main() = application {
                 *Claude.args
             )
         }
-    }
-
-    Database.connect("jdbc:sqlite:ClaudeCode.sqlite", driver = "org.sqlite.JDBC")
-    transaction {
-        // CREATE TABLE IF NOT EXISTS
-        SchemaUtils.create(Projects, Sessions, Messages, Settings)
-        // additive migrations
-        // SchemaUtils.createMissingTablesAndColumns(Users, Posts)
     }
 
     Window(
