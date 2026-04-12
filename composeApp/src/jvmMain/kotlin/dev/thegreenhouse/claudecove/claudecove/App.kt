@@ -533,30 +533,15 @@ fun App(processManager: ProcessManager) {
 
                     if (askingPermission) {
                         PermissionPrompt(
-                            onYes = {
+                            onResponse = { answer ->
                                 askingRequest?.let {
-                                    val ok = Claude.ResponseControl.newAccept(askingRequestId, it)
-                                    processManager.sendLine(json.encodeToString(ok))
-
-                                    askingRequestId = ""
-                                    askingRequest = null
-                                    askingPermission = false
-                                }
-                            },
-                            onNo = {
-                                askingRequest?.let {
-                                    val ok = Claude.ResponseControl.newDecline(askingRequestId, it)
-                                    processManager.sendLine(json.encodeToString(ok))
-
-                                    askingRequestId = ""
-                                    askingRequest = null
-                                    askingPermission = false
-                                }
-                            },
-                            onYesToAll = {
-                                askingRequest?.let {
-                                    val ok = Claude.ResponseControl.newAcceptAll(askingRequestId, it)
-                                    processManager.sendLine(json.encodeToString(ok))
+                                    val response = when (answer) {
+                                        "yes" -> Claude.ResponseControl.newAccept(askingRequestId, it)
+                                        "no" -> Claude.ResponseControl.newDecline(askingRequestId, it)
+                                        "all" -> Claude.ResponseControl.newAcceptAll(askingRequestId, it)
+                                        else -> throw Exception()
+                                    }
+                                    processManager.sendLine(json.encodeToString(response))
 
                                     askingRequestId = ""
                                     askingRequest = null
@@ -658,9 +643,7 @@ fun App(processManager: ProcessManager) {
 
 @Composable
 fun PermissionPrompt(
-    onYes: () -> Unit,
-    onNo: () -> Unit,
-    onYesToAll: () -> Unit
+    onResponse: (String) -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -684,14 +667,14 @@ fun PermissionPrompt(
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                OutlinedButton(onClick = onYes) {
+                OutlinedButton(onClick = { onResponse("yes") }) {
                     Text("Yes")
                 }
-                OutlinedButton(onClick = onNo) {
+                OutlinedButton(onClick = { onResponse("no") }) {
                     Text("No")
                 }
                 Button(
-                    onClick = onYesToAll,
+                    onClick = { onResponse("all") },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.error,
                         contentColor = MaterialTheme.colorScheme.onError
