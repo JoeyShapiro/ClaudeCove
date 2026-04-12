@@ -5,10 +5,52 @@ import java.io.File
 import java.io.FileNotFoundException
 import java.util.UUID
 import kotlinx.serialization.*
+import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.descriptors.buildClassSerialDescriptor
+import kotlinx.serialization.descriptors.elementNames
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.*
+
+// Use on a property to emit a specific JSON key, bypassing snake_case conversion.
+// Works like @SerialName but is detectable by SerialOrSnakeCase at runtime.
+@SerialInfo
+@Target(AnnotationTarget.PROPERTY)
+annotation class JsonName(val value: String)
+
+// Converts camelCase property names to snake_case JSON keys.
+// Properties annotated with @JsonName use that value verbatim instead.
+@OptIn(ExperimentalSerializationApi::class)
+object SerialOrSnakeCase : JsonNamingStrategy {
+    override fun serialNameForJson(descriptor: SerialDescriptor, elementIndex: Int, serialName: String): String {
+        val jsonName = descriptor.getElementAnnotations(elementIndex)
+            .filterIsInstance<JsonName>()
+            .firstOrNull()
+        if (jsonName != null) return jsonName.value
+
+        return buildString {
+            var allUpperSoFar = true
+            var lastUpperIndex = -1
+            for (i in serialName.indices) {
+                val c = serialName[i]
+                if (c.isUpperCase()) {
+                    if (!allUpperSoFar) {
+                        if (isNotEmpty()) append('_')
+                        lastUpperIndex = i
+                        allUpperSoFar = true
+                    }
+                    append(c.lowercaseChar())
+                } else {
+                    if (allUpperSoFar && lastUpperIndex >= 0 && i - lastUpperIndex > 1) {
+                        insert(length - 1, '_')
+                    }
+                    allUpperSoFar = false
+                    append(c)
+                }
+            }
+        }
+    }
+}
 
 class Claude {
     // Sealed class hierarchy for all your response types
@@ -19,10 +61,9 @@ class Claude {
     object EventSerializer : KSerializer<Event> {
         @OptIn(ExperimentalSerializationApi::class)
         val jsonConfiguration = Json {
-            namingStrategy = JsonNamingStrategy.SnakeCase
+            namingStrategy = SerialOrSnakeCase
             ignoreUnknownKeys = true   // don't crash if JSON has extra fields
             isLenient = true           // allows unquoted keys, trailing commas
-            encodeDefaults = true      // include fields that equal their default value
         }
 
         override val descriptor = buildClassSerialDescriptor("Event")

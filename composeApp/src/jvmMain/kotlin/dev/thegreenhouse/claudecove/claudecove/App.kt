@@ -79,7 +79,6 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerializationException
 import java.util.UUID
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonNamingStrategy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -108,10 +107,10 @@ import java.time.temporal.ChronoUnit
 @Composable
 fun App(processManager: ProcessManager) {
     val json = Json {
-        namingStrategy = JsonNamingStrategy.SnakeCase
+        namingStrategy = SerialOrSnakeCase
         ignoreUnknownKeys = true   // don't crash if JSON has extra fields
         isLenient = true           // allows unquoted keys, trailing commas
-        encodeDefaults = true      // include fields that equal their default value
+        encodeDefaults = false     // omit empty
     }
 
     val settings = transaction {
