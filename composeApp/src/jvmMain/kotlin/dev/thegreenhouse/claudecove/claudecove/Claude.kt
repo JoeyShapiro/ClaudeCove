@@ -238,6 +238,20 @@ class Claude {
                     )
                 )
             )
+
+            fun newAcceptAll(requestId: String, request: RequestTool) = ResponseControl(
+                type = "control_response",
+                response = ControlResponseResponse(
+                    subtype = "success",
+                    requestId = requestId,
+                    response = ResponseTool(
+                        behavior = "allow",
+                        updatedInput = request.input,
+                        updatedPermissions = request.permissionSuggestions,
+                        toolUseID = request.toolUseId
+                    )
+                )
+            )
         }
 
     }

@@ -553,7 +553,16 @@ fun App(processManager: ProcessManager) {
                                     askingPermission = false
                                 }
                             },
-                            onYesToAll = { /* TODO */ }
+                            onYesToAll = {
+                                askingRequest?.let {
+                                    val ok = Claude.ResponseControl.newAcceptAll(askingRequestId, it)
+                                    processManager.sendLine(json.encodeToString(ok))
+
+                                    askingRequestId = ""
+                                    askingRequest = null
+                                    askingPermission = false
+                                }
+                            }
                         )
                     }
 
