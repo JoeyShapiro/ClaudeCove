@@ -15,12 +15,12 @@ class ProcessManager(private val scope: CoroutineScope) {
     var directory: File? = null
 
     val stdout = MutableSharedFlow<String>()
-    
+
     // TODO ping when done
+    // TODO set current dir on restart
     // TODO add buddy
     // TODO use session id created from claude
     // TODO use streaming
-    // TODO handle tool requests
     fun start(vararg command: String) {
         this.command = command
         process = ProcessBuilder(*command)

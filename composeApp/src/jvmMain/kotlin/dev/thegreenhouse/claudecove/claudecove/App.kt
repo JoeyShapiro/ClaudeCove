@@ -178,7 +178,9 @@ fun App(processManager: ProcessManager) {
             var currentSession by remember { mutableStateOf(config.session) }
             var messages by remember { mutableStateOf(listOf<Message>()) }
             var thinking by remember { mutableStateOf(false) }
-            var askingPermission by remember { mutableStateOf(true) }
+            var askingPermission by remember { mutableStateOf(false) }
+            var askingRequest: Claude.RequestTool? by remember { mutableStateOf(null) }
+            var askingRequestId by remember { mutableStateOf("") }
             var showSettings by remember { mutableStateOf(false) }
             val listState = rememberLazyListState()
             val scope = rememberCoroutineScope()
@@ -204,15 +206,22 @@ fun App(processManager: ProcessManager) {
                         val event = Json.decodeFromString<Claude.Event>(line)
 
                         when (event) {
-                            is Claude.ResponseControl -> {
-                                transaction {
-                                    Sessions.update({ Sessions.id eq currentSession }) {
-                                        it[name] = event.response.response.title ?: ""
+                            is Claude.ResponseControl<*> -> {
+                                when (event.response.response) {
+                                    is Claude.ControlResponseResponseResponse -> {
+                                        // set the title if its populated
+                                        event.response.response.title?.let { title ->
+                                            transaction {
+                                                Sessions.update({ Sessions.id eq currentSession }) {
+                                                    it[name] = title
+                                                }
+                                            }
+                                            sessions = transaction {
+                                                Sessions.selectAll()
+                                                        .map { Session.from(it) }
+                                            }
+                                        }
                                     }
-                                }
-                                sessions = transaction {
-                                    Sessions.selectAll()
-                                            .map { Session.from(it) }
                                 }
                             }
                             is Claude.ResponseResult -> {
@@ -233,13 +242,24 @@ fun App(processManager: ProcessManager) {
                                 }
                                 thinking = false
                             }
-                            is Claude.RequestControl -> {
-                                val ok = Claude.ResponseControl.newContinue(event.requestId)
-                                val data = json.encodeToString(ok)
-                                processManager.sendLine(data)
+                            is Claude.RequestControl<*> -> {
+                                when (val request = event.request) {
+                                    is Claude.RequestHookCallback -> {
+                                        // auto-continue hooks
+                                        val ok = Claude.ResponseControl.newContinue(event.requestId)
+                                        processManager.sendLine(json.encodeToString(ok))
+                                    }
+                                    is Claude.RequestTool -> {
+                                        // show permission prompt, then respond
+                                        askingPermission = true
+                                        askingRequest = request
+                                        askingRequestId = event.requestId
+                                    }
+                                }
                             }
                         }
                     } catch (e: SerializationException) {
+                        // TODO catch Expected JsonPrimitive, but had JsonObject as the serialized body of string at element: $.0
                         println(e.localizedMessage)
                         println(line)
                         println("------------------------------")
@@ -514,8 +534,26 @@ fun App(processManager: ProcessManager) {
 
                     if (askingPermission) {
                         PermissionPrompt(
-                            onYes = { /* TODO */ },
-                            onNo = { /* TODO */ },
+                            onYes = {
+                                askingRequest?.let {
+                                    val ok = Claude.ResponseControl.newAccept(askingRequestId, it)
+                                    processManager.sendLine(json.encodeToString(ok))
+
+                                    askingRequestId = ""
+                                    askingRequest = null
+                                    askingPermission = false
+                                }
+                            },
+                            onNo = {
+                                askingRequest?.let {
+                                    val ok = Claude.ResponseControl.newDecline(askingRequestId, it)
+                                    processManager.sendLine(json.encodeToString(ok))
+
+                                    askingRequestId = ""
+                                    askingRequest = null
+                                    askingPermission = false
+                                }
+                            },
                             onYesToAll = { /* TODO */ }
                         )
                     }

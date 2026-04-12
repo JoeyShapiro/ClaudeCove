@@ -31,13 +31,26 @@ class Claude {
             val json = (decoder as JsonDecoder).decodeJsonElement().jsonObject
 
             val type = json["type"]?.jsonPrimitive?.content
-            val subtype = json["subtype"]?.jsonPrimitive?.contentOrNull
 
-            return when {
-                type == "control_request"  -> jsonConfiguration.decodeFromJsonElement<RequestControl>(json)
-                type == "control_response" -> jsonConfiguration.decodeFromJsonElement<ResponseControl>(json)
-                type == "result"           -> jsonConfiguration.decodeFromJsonElement<ResponseResult>(json)
-                else -> throw SerializationException("Unknown event type: $type / $subtype")
+            return when (type) {
+                "control_request" -> {
+                    val subtype = json["request"]?.jsonObject?.get("subtype")?.jsonPrimitive?.content
+                    when (subtype) {
+                        "hook_callback" -> jsonConfiguration.decodeFromJsonElement<RequestControl<RequestHookCallback>>(json)
+                        "can_use_tool" -> jsonConfiguration.decodeFromJsonElement<RequestControl<RequestTool>>(json)
+                        else -> throw SerializationException("Unknown event type: $type / $subtype")
+
+                    }
+                }
+                "control_response" -> {
+                    val subtype = json["response"]?.jsonObject?.get("subtype")?.jsonPrimitive?.content
+                    when (subtype) {
+                        "success" -> jsonConfiguration.decodeFromJsonElement<ResponseControl<ControlResponseResponseResponse>>(json)
+                        else -> throw SerializationException("Unknown event type: $type / $subtype")
+                    }
+                }
+                "result"                                        -> jsonConfiguration.decodeFromJsonElement<ResponseResult>(json)
+                else                                            -> throw SerializationException("Unknown event type: $type")
             }
         }
 
@@ -49,12 +62,12 @@ class Claude {
     // {"request_id":"dxv71vev7ef","type":"control_request",
     // "request":{"subtype":"generate_session_title","description":"","persist":false}}
     @Serializable
-    data class ControlRequest (val requestId: String, val type: String, val request: Request) {
+    data class ControlRequest (val requestId: String, val type: String, val request: RequestTitle) {
         companion object {
             fun title(description: String) = ControlRequest(
                 requestId = UUID.randomUUID().toString(),
                 type = "control_request",
-                request = Request(
+                request = RequestTitle(
                     subtype = "generate_session_title",
                     description = description,
                     persist = false,
@@ -64,7 +77,36 @@ class Claude {
     }
 
     @Serializable
-    data class Request (val subtype: String, val description: String, val persist: Boolean = false)
+    data class RequestTitle (val subtype: String, val description: String, val persist: Boolean = false)
+
+    @Serializable
+    data class RequestTool(
+        val subtype: String? = null,
+        val toolName: String,
+        val input: ToolInput,
+        val permissionSuggestions: List<PermissionSuggestion>? = null,
+        val toolUseId: String,
+    )
+
+    @Serializable
+    data class ResponseTool(
+        val behavior: String,
+        val message: String? = null,
+        val interrupt: Boolean? = null,
+        @JsonName("updatedInput")
+        val updatedInput: ToolInput? = null,
+        @JsonName("updatedPermissions")
+        val updatedPermissions: List<PermissionSuggestion>? = null,
+        @JsonName("toolUseID")
+        val toolUseID: String,
+    )
+
+    @Serializable
+    data class PermissionSuggestion(
+        val type: String,
+        val mode: String,
+        val destination: String,
+    )
 
     // {"type":"user","uuid":"cc919660-fa64-4ca6-9e0c-473def3b9436","session_id":"","parent_tool_use_id":null,
 // "message":{"role":"user","content":[{"type":"text","text":""}]}}
@@ -106,15 +148,15 @@ class Claude {
         val sessionId: String,
         val totalCostUsd: Float,
         // ... more stuff
-        val permissionDenials: List<String>,
+        val permissionDenials: List<RequestTool>,
         val fastModeState: String,
         val uuid: String,
     ) : Event()
 
     @Serializable
-    data class ResponseControl(
+    data class ResponseControl<T>(
         val type: String,
-        val response: ControlResponseResponse,
+        val response: ControlResponseResponse<T>,
     ) : Event() {
         companion object {
             fun newContinue(requestId: String) = ResponseControl(
@@ -127,15 +169,43 @@ class Claude {
                     )
                 )
             )
+
+            fun newAccept(requestId: String, request: RequestTool) = ResponseControl(
+                type = "control_response",
+                response = ControlResponseResponse(
+                    subtype = "success",
+                    requestId = requestId,
+                    response = ResponseTool(
+                        behavior = "allow",
+                        updatedInput = request.input,
+                        updatedPermissions = listOf(),
+                        toolUseID = request.toolUseId
+                    )
+                )
+            )
+
+            fun newDecline(requestId: String, request: RequestTool) = ResponseControl(
+                type = "control_response",
+                response = ControlResponseResponse(
+                    subtype = "success",
+                    requestId = requestId,
+                    response = ResponseTool(
+                        behavior = "deny",
+                        message = "The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.",
+                        interrupt = true,
+                        toolUseID = request.toolUseId,
+                    )
+                )
+            )
         }
 
     }
 
     @Serializable
-    data class ControlResponseResponse(
+    data class ControlResponseResponse<T>(
         val subtype: String,
         val requestId: String,
-        val response: ControlResponseResponseResponse,
+        val response: T,
     )
 
     @Serializable
@@ -145,14 +215,14 @@ class Claude {
     )
 
     @Serializable
-    data class RequestControl (
+    data class RequestControl<T> (
         val type: String,
         val requestId: String,
-        val request: AgentRequest,
+        val request: T,
     ) : Event()
 
     @Serializable
-    data class AgentRequest (
+    data class RequestHookCallback (
         val subtype: String,
         val callbackId: String,
         val input: AgentInput,
@@ -174,6 +244,10 @@ class Claude {
     @Serializable
     data class ToolInput(
         val filePath: String,
+        val content: String? = null,
+        val oldString: String? = null,
+        val newString: String? = null,
+        val replaceAll: Boolean? = null,
     )
 
     companion object {
