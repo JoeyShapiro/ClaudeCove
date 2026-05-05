@@ -300,7 +300,24 @@ fun App(processManager: ProcessManager) {
                                 }
                             }
                             is Claude.ResponseSystem -> {
-                                currentSession = event.sessionId
+                                // cant guarentee that messages were already saved
+                                // so we just have to remap all of them
+                                val oldId = currentSession
+                                val newId = event.sessionId
+                                if (oldId != newId && oldId.isNotEmpty()) {
+                                    transaction {
+                                        Sessions.update({ Sessions.id eq oldId }) {
+                                            it[Sessions.id] = newId
+                                        }
+                                        Messages.update({ Messages.session eq oldId }) {
+                                            it[Messages.session] = newId
+                                        }
+                                    }
+                                    sessions = sessions.map { if (it.id == oldId) it.copy(id = newId) else it }
+                                    messages = messages.map { it.copy(session = newId) }
+                                    config.upSession(newId)
+                                }
+                                currentSession = newId
                             }
                         }
                     } catch (e: SerializationException) {
