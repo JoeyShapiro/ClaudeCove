@@ -56,7 +56,7 @@ compose.desktop {
                 TargetFormat.Msi,       // Windows installer
                 TargetFormat.Deb,       // Linux .deb
                 TargetFormat.Exe,       // Windows standalone exe
-                TargetFormat.AppImage,  // Linux portable
+//                TargetFormat.AppImage,  // Linux portable
             )
 
             // 158.3

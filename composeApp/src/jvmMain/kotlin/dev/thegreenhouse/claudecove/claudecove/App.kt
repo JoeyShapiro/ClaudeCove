@@ -2,6 +2,8 @@ package dev.thegreenhouse.claudecove.claudecove
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.TooltipArea
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
@@ -61,6 +63,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.window.Dialog
 import claudecove.composeapp.generated.resources.Res
 import claudecove.composeapp.generated.resources.chat_add
@@ -900,6 +903,7 @@ object Settings : Table("settings") {
     override val primaryKey = PrimaryKey(name)
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SessionItem(
     name: String,
@@ -910,47 +914,65 @@ fun SessionItem(
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
 
-    Card(
-        modifier = Modifier
-                .fillMaxWidth()
-                .hoverable(interactionSource)
-                .clickable {
-                    onSessionClick()
-                },
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (selected) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-            contentColor = if (selected) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+    Box(modifier = Modifier.fillMaxWidth().hoverable(interactionSource)) {
+        TooltipArea(
+            tooltip = {
+                Card(
+                    shape = RoundedCornerShape(6.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+                    Text(
+                        text = name,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                    )
+                }
+            }
         ) {
-            Box(
+            Card(
                 modifier = Modifier
-                        .size(10.dp)
-                        .background(
-                            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
-                            shape = RoundedCornerShape(50)
-                        )
-            )
-            Text(
-                text = name,
-                style = MaterialTheme.typography.titleSmall
-            )
-            Spacer(modifier = Modifier.weight(1f))
-            IconButton(
-                onClick = { onDeleteClick() },
-                modifier = Modifier.alpha(if (isHovered) 1f else 0f)
-            ) {
-                Icon(
-                    painter = painterResource(Res.drawable.delete),
-                    contentDescription = "Delete",
-                    tint = MaterialTheme.colorScheme.onSurface,
+                        .fillMaxWidth()
+                        .clickable { onSessionClick() },
+                shape = RoundedCornerShape(12.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (selected) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = if (selected) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                                .size(10.dp)
+                                .background(
+                                    color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
+                                    shape = RoundedCornerShape(50)
+                                )
+                    )
+                    Text(
+                        text = name,
+                        style = MaterialTheme.typography.titleSmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(
+                        onClick = { onDeleteClick() },
+                        modifier = Modifier.alpha(if (isHovered) 1f else 0f)
+                    ) {
+                        Icon(
+                            painter = painterResource(Res.drawable.delete),
+                            contentDescription = "Delete",
+                            tint = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                }
             }
         }
     }
