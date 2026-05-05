@@ -217,6 +217,30 @@ fun App(processManager: ProcessManager) {
                         .map { Message.from(it) }
             }
 
+            fun createNewSession(project: String? = null, directory: File? = null) {
+                val newSession = Session(name = "New Session", project = project)
+                sessions = sessions + newSession
+                transaction {
+                    Sessions.insert {
+                        it[id] = newSession.id
+                        it[name]   = newSession.name
+                        it[Sessions.project]  = newSession.project
+                        it[prompt] = newSession.prompt
+                    }
+                }
+
+                currentSession = newSession.id
+                config.upSession(currentSession)
+                messages = transaction {
+                    Messages.selectAll()
+                            .where { Messages.session eq currentSession }
+                            .map { Message.from(it) }
+                }
+
+                processManager.directory = directory
+                processManager.restart()
+            }
+
             // Collect stdout
             LaunchedEffect(Unit) {
                 processManager.stdout.collect { line ->
@@ -350,31 +374,7 @@ fun App(processManager: ProcessManager) {
                                 )
                             }
                             IconButton(
-                                onClick = {
-                                    // go to newly added session
-                                    val newSession = Session(name = "New Session")
-                                    sessions = sessions + newSession
-                                    transaction {
-                                        Sessions.insert {
-                                            it[id] = newSession.id
-                                            it[name]   = newSession.name
-                                            it[project]  = newSession.project
-                                            it[prompt] = newSession.prompt
-                                        }
-                                    }
-
-                                    currentSession = newSession.id
-                                    config.upSession(currentSession)
-                                    messages = transaction {
-                                        Messages.selectAll()
-                                                .where { Messages.session eq currentSession }
-                                                .map { Message.from(it) }
-                                    }
-
-                                    // start the new process
-                                    processManager.directory = null
-                                    processManager.restart()
-                                }
+                                onClick = { createNewSession() }
                             ) {
                                 Icon(
                                     painter = painterResource(Res.drawable.chat_add),
@@ -436,29 +436,7 @@ fun App(processManager: ProcessManager) {
                                             session.project == it.id
                                                             },
                                     onCreateSession = {
-                                        // go to newly added session
-                                        val newSession = Session(name = "New Session", project = it.id)
-                                        sessions = sessions + newSession
-                                        transaction {
-                                            Sessions.insert {
-                                                it[id] = newSession.id
-                                                it[name]   = newSession.name
-                                                it[project] = newSession.project
-                                                it[prompt] = newSession.prompt
-                                            }
-                                        }
-
-                                        currentSession = newSession.id
-                                        config.upSession(currentSession)
-                                        messages = transaction {
-                                            Messages.selectAll()
-                                                    .where { Messages.session eq currentSession }
-                                                    .map { Message.from(it) }
-                                        }
-
-                                        // start the new process
-                                        processManager.directory = it.directory
-                                        processManager.restart()
+                                        createNewSession(project = it.id, directory = it.directory)
                                     }
                                 ) {
                                     sessions.forEach { session ->
@@ -600,20 +578,7 @@ fun App(processManager: ProcessManager) {
                                             !event.isShiftPressed
                                         ) {
                                             if (currentSession.isEmpty()) {
-                                                val newSession = Session(name = "New Session")
-                                                sessions = sessions + newSession
-                                                transaction {
-                                                    Sessions.insert {
-                                                        it[id] = newSession.id
-                                                        it[name] = newSession.name
-                                                        it[project] = newSession.project
-                                                        it[prompt] = newSession.prompt
-                                                    }
-                                                }
-                                                currentSession = newSession.id
-                                                config.upSession(currentSession)
-                                                processManager.directory = null
-                                                processManager.restart()
+                                                createNewSession()
                                             }
 
                                             val prompt = Claude.Prompt.new(input)

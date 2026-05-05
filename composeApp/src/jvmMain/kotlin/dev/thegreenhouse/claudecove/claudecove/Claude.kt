@@ -91,7 +91,7 @@ class Claude {
                     }
                 }
                 "system" -> {
-                    val subtype = json["subtype"]?.jsonPrimitive.content
+                    val subtype = json["subtype"]?.jsonPrimitive?.content
                     when (subtype) {
                         "init" -> jsonConfiguration.decodeFromJsonElement<ResponseSystem>(json)
                         else -> throw SerializationException("Unknown event type: $type / $subtype")
