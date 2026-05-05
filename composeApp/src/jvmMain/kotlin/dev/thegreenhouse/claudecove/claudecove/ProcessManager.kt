@@ -16,7 +16,6 @@ class ProcessManager(private val scope: CoroutineScope) {
 
     val stdout = MutableSharedFlow<String>()
 
-    // TODO fail if folder doesnt exist
     // TODO ping when done
     // TODO add buddy
     // TODO use streaming
@@ -24,10 +23,14 @@ class ProcessManager(private val scope: CoroutineScope) {
     // TODO stat folder
     // TODO open here
     // TODO custom icon
-    fun start(vararg command: String) {
+    // TODO dont allow switching if thinking
+    fun start(vararg command: String): Boolean {
+        val cwd = this.directory ?: File(System.getProperty("java.io.tmpdir"))
+        if (!cwd.exists()) return false
+
         this.command = command
         process = ProcessBuilder(*command)
-                .directory(this.directory ?: File(System.getProperty("java.io.tmpdir")))
+                .directory(cwd)
                 .redirectError(ProcessBuilder.Redirect.DISCARD)
                 .start()
 
@@ -41,6 +44,7 @@ class ProcessManager(private val scope: CoroutineScope) {
                 }
             }
         }
+        return true
     }
 
     fun sendLine(input: String) {
@@ -53,13 +57,13 @@ class ProcessManager(private val scope: CoroutineScope) {
         process.destroy()
     }
 
-    fun restart() {
+    fun restart(): Boolean {
         this.stop()
-        this.start(*this.command)
+        return this.start(*this.command)
     }
 
-    fun resume(session: String) {
+    fun resume(session: String): Boolean {
         this.stop()
-        this.start(*this.command, "--resume", session)
+        return this.start(*this.command, "--resume", session)
     }
 }

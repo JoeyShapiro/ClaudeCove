@@ -206,6 +206,7 @@ fun App(processManager: ProcessManager) {
             var askingRequestId by remember { mutableStateOf("") }
             var showSettings by remember { mutableStateOf(false) }
             var confirmDeleteProject by remember { mutableStateOf<Project?>(null) }
+            var directoryMissing by remember { mutableStateOf(false) }
             val listState = rememberLazyListState()
             val scope = rememberCoroutineScope()
 
@@ -216,6 +217,10 @@ fun App(processManager: ProcessManager) {
             projects = transaction {
                 Projects.selectAll()
                         .map { Project.from(it) }
+            }
+
+            LaunchedEffect(Unit) {
+                directoryMissing = processManager.directory?.let { !it.exists() } ?: false
             }
             messages = transaction {
                 Messages.selectAll()
@@ -271,7 +276,7 @@ fun App(processManager: ProcessManager) {
                 }
 
                 processManager.directory = directory
-                processManager.restart()
+                directoryMissing = !processManager.restart()
             }
 
             // Collect stdout
@@ -471,10 +476,10 @@ fun App(processManager: ProcessManager) {
 
                                             // start the new process
                                             processManager.directory = null
-                                            if (session.isClaudeSession) {
-                                                processManager.resume(currentSession)
+                                            directoryMissing = if (session.isClaudeSession) {
+                                                !processManager.resume(currentSession)
                                             } else {
-                                                processManager.restart()
+                                                !processManager.restart()
                                             }
                                         },
                                         onDeleteClick = { deleteSession(session.id) }
@@ -517,10 +522,10 @@ fun App(processManager: ProcessManager) {
 
                                                     // start the new process
                                                     processManager.directory = it.directory
-                                                    if (session.isClaudeSession) {
-                                                        processManager.resume(currentSession)
+                                                    directoryMissing = if (session.isClaudeSession) {
+                                                        !processManager.resume(currentSession)
                                                     } else {
-                                                        processManager.restart()
+                                                        !processManager.restart()
                                                     }
                                                 },
                                                 onDeleteClick = { deleteSession(session.id) }
@@ -653,23 +658,60 @@ fun App(processManager: ProcessManager) {
                         )
                     }
 
+                    if (directoryMissing) {
+                        val warningBg   = if (isDark) Color(0xFF2E2800) else Color(0xFFFFF8E1)
+                        val warningText = if (isDark) Color(0xFFFFD54F) else Color(0xFF6D4C00)
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                            shape = RoundedCornerShape(8.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = warningBg,
+                                contentColor = warningText
+                            ),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    "Directory not found — running in a temp folder.",
+                                    modifier = Modifier.weight(1f),
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                                Text(
+                                    "×",
+                                    modifier = Modifier
+                                        .clickable { directoryMissing = false }
+                                        .padding(8.dp),
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                            }
+                        }
+                    }
+
                     Row(
                         modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        val warningAmber = Color(0xFFFFA000)
                         TextField(
                             input,
                             label = { Text("prompt") },
                             colors = TextFieldDefaults.colors(
                                 focusedContainerColor   = MaterialTheme.colorScheme.surfaceVariant,
                                 unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                focusedIndicatorColor   = MaterialTheme.colorScheme.primary,
-                                unfocusedIndicatorColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
+                                focusedIndicatorColor   = if (directoryMissing) warningAmber else MaterialTheme.colorScheme.primary,
+                                unfocusedIndicatorColor = if (directoryMissing) warningAmber.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
                                 focusedTextColor        = MaterialTheme.colorScheme.onSurface,
                                 unfocusedTextColor      = MaterialTheme.colorScheme.onSurface,
-                                focusedLabelColor       = MaterialTheme.colorScheme.primary,
+                                focusedLabelColor       = if (directoryMissing) warningAmber else MaterialTheme.colorScheme.primary,
                                 unfocusedLabelColor     = MaterialTheme.colorScheme.onSurfaceVariant,
                                 cursorColor             = MaterialTheme.colorScheme.primary,
                             ),
