@@ -19,7 +19,7 @@ fun main() = application {
         // CREATE TABLE IF NOT EXISTS
         SchemaUtils.create(Projects, Sessions, Messages, Settings)
         // additive migrations
-        // SchemaUtils.createMissingTablesAndColumns(Users, Posts)
+        SchemaUtils.createMissingTablesAndColumns(Sessions)
     }
 
     val processManager = remember {

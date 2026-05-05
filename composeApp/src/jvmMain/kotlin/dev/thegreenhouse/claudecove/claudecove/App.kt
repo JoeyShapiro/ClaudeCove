@@ -138,7 +138,9 @@ fun App(processManager: ProcessManager) {
                         .map { Project.from(it) }
                         .firstOrNull()?.let { project ->
                             processManager.directory = project.directory
-                            processManager.resume(config.session)
+                            if (session.isClaudeSession) {
+                                processManager.resume(config.session)
+                            }
                         }
             }
         }
@@ -308,14 +310,22 @@ fun App(processManager: ProcessManager) {
                                     transaction {
                                         Sessions.update({ Sessions.id eq oldId }) {
                                             it[Sessions.id] = newId
+                                            it[Sessions.claudeSession] = true
                                         }
                                         Messages.update({ Messages.session eq oldId }) {
                                             it[Messages.session] = newId
                                         }
                                     }
-                                    sessions = sessions.map { if (it.id == oldId) it.copy(id = newId) else it }
+                                    sessions = sessions.map { if (it.id == oldId) it.copy(id = newId, isClaudeSession = true) else it }
                                     messages = messages.map { it.copy(session = newId) }
                                     config.upSession(newId)
+                                } else if (oldId == newId) {
+                                    transaction {
+                                        Sessions.update({ Sessions.id eq oldId }) {
+                                            it[Sessions.claudeSession] = true
+                                        }
+                                    }
+                                    sessions = sessions.map { if (it.id == oldId) it.copy(isClaudeSession = true) else it }
                                 }
                                 currentSession = newId
                             }
@@ -430,7 +440,11 @@ fun App(processManager: ProcessManager) {
 
                                             // start the new process
                                             processManager.directory = null
-                                            processManager.resume(currentSession)
+                                            if (session.isClaudeSession) {
+                                                processManager.resume(currentSession)
+                                            } else {
+                                                processManager.restart()
+                                            }
                                         },
                                         onDeleteClick = {
                                             transaction {
@@ -473,7 +487,11 @@ fun App(processManager: ProcessManager) {
 
                                                     // start the new process
                                                     processManager.directory = it.directory
-                                                    processManager.resume(currentSession)
+                                                    if (session.isClaudeSession) {
+                                                        processManager.resume(currentSession)
+                                                    } else {
+                                                        processManager.restart()
+                                                    }
                                                 },
                                                 onDeleteClick = {
                                                     transaction {
@@ -791,6 +809,7 @@ data class Session(
     val name: String,
     val project: String? = null, // it is better to have the parent. then its 1:many. which is easier to db-ize
     val prompt: String = "",
+    val isClaudeSession: Boolean = false,
 ) {
     companion object {
         fun from(row: ResultRow): Session {
@@ -799,16 +818,18 @@ data class Session(
                 name = row[Sessions.name],
                 project = row[Sessions.project],
                 prompt = row[Sessions.prompt],
+                isClaudeSession = row[Sessions.claudeSession],
             )
         }
     }
 }
 
 object Sessions : Table("sessions") {
-    val id        = varchar("id", 36)
-    val name      = varchar("name", 256)
-    val project   = varchar("project", 36).nullable()
-    val prompt    = varchar("prompt", 1024)
+    val id            = varchar("id", 36)
+    val name          = varchar("name", 256)
+    val project       = varchar("project", 36).nullable()
+    val prompt        = varchar("prompt", 1024)
+    val claudeSession = bool("claude_session").default(false)
 
     override val primaryKey = PrimaryKey(Projects.id)
 }

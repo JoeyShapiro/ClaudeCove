@@ -22,10 +22,13 @@ class ProcessManager(private val scope: CoroutineScope) {
     // TODO use session id created from claude
     // TODO use streaming
     // TODO support plugins
+    // TODO stat folder
+    // TODO open here
+    // TODO remove project
     fun start(vararg command: String) {
         this.command = command
         process = ProcessBuilder(*command)
-                .directory(directory ?: File(System.getProperty("java.io.tmpdir")))
+                .directory(this.directory ?: File(System.getProperty("java.io.tmpdir")))
                 .redirectError(ProcessBuilder.Redirect.DISCARD)
                 .start()
 
