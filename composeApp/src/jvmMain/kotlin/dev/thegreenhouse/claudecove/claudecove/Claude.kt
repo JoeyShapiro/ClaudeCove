@@ -90,6 +90,13 @@ class Claude {
                         else -> throw SerializationException("Unknown event type: $type / $subtype")
                     }
                 }
+                "system" -> {
+                    val subtype = json["subtype"]?.jsonPrimitive.content
+                    when (subtype) {
+                        "init" -> jsonConfiguration.decodeFromJsonElement<ResponseSystem>(json)
+                        else -> throw SerializationException("Unknown event type: $type / $subtype")
+                    }
+                }
                 "result"                                        -> jsonConfiguration.decodeFromJsonElement<ResponseResult>(json)
                 else                                            -> throw SerializationException("Unknown event type: $type")
             }
@@ -192,6 +199,15 @@ class Claude {
         val permissionDenials: List<RequestTool>,
         val fastModeState: String,
         val uuid: String,
+    ) : Event()
+
+    @Serializable
+    data class ResponseSystem (
+        val type: String,
+        val subtype: String,
+        val cwd: String,
+        val sessionId: String,
+        // ... other cool stuff i dont need now
     ) : Event()
 
     @Serializable

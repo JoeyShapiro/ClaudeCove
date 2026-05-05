@@ -275,6 +275,9 @@ fun App(processManager: ProcessManager) {
                                     }
                                 }
                             }
+                            is Claude.ResponseSystem -> {
+                                currentSession = event.sessionId
+                            }
                         }
                     } catch (e: SerializationException) {
                         println(e.localizedMessage)
