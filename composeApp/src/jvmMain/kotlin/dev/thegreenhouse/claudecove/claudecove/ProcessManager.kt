@@ -20,10 +20,8 @@ class ProcessManager(private val scope: CoroutineScope) {
     // TODO add buddy
     // TODO use streaming
     // TODO support plugins
-    // TODO stat folder
     // TODO open here
     // TODO custom icon
-    // TODO dont allow switching if thinking
     fun start(vararg command: String): Boolean {
         val cwd = this.directory ?: File(System.getProperty("java.io.tmpdir"))
         if (!cwd.exists()) return false

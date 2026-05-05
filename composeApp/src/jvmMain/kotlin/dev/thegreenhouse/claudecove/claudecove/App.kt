@@ -206,6 +206,7 @@ fun App(processManager: ProcessManager) {
             var askingRequestId by remember { mutableStateOf("") }
             var showSettings by remember { mutableStateOf(false) }
             var confirmDeleteProject by remember { mutableStateOf<Project?>(null) }
+            var confirmSwitchSession by remember { mutableStateOf<(() -> Unit)?>(null) }
             var directoryMissing by remember { mutableStateOf(false) }
             val listState = rememberLazyListState()
             val scope = rememberCoroutineScope()
@@ -465,22 +466,22 @@ fun App(processManager: ProcessManager) {
                                         name = session.name,
                                         selected = session.id == currentSession,
                                         onSessionClick = {
-                                            // go to other session
-                                            currentSession = session.id
-                                            config.upSession(currentSession)
-                                            messages = transaction {
-                                                Messages.selectAll()
-                                                        .where { Messages.session eq currentSession }
-                                                        .map { Message.from(it) }
+                                            val doSwitch = {
+                                                currentSession = session.id
+                                                config.upSession(currentSession)
+                                                messages = transaction {
+                                                    Messages.selectAll()
+                                                            .where { Messages.session eq currentSession }
+                                                            .map { Message.from(it) }
+                                                }
+                                                processManager.directory = null
+                                                directoryMissing = if (session.isClaudeSession) {
+                                                    !processManager.resume(currentSession)
+                                                } else {
+                                                    !processManager.restart()
+                                                }
                                             }
-
-                                            // start the new process
-                                            processManager.directory = null
-                                            directoryMissing = if (session.isClaudeSession) {
-                                                !processManager.resume(currentSession)
-                                            } else {
-                                                !processManager.restart()
-                                            }
+                                            if (thinking) confirmSwitchSession = doSwitch else doSwitch()
                                         },
                                         onDeleteClick = { deleteSession(session.id) }
                                     )
@@ -511,22 +512,22 @@ fun App(processManager: ProcessManager) {
                                                 name = session.name,
                                                 selected = session.id == currentSession,
                                                 onSessionClick = {
-                                                    // go to other session
-                                                    currentSession = session.id
-                                                    config.upSession(currentSession)
-                                                    messages = transaction {
-                                                        Messages.selectAll()
-                                                                .where { Messages.session eq currentSession }
-                                                                .map { Message.from(it) }
+                                                    val doSwitch = {
+                                                        currentSession = session.id
+                                                        config.upSession(currentSession)
+                                                        messages = transaction {
+                                                            Messages.selectAll()
+                                                                    .where { Messages.session eq currentSession }
+                                                                    .map { Message.from(it) }
+                                                        }
+                                                        processManager.directory = it.directory
+                                                        directoryMissing = if (session.isClaudeSession) {
+                                                            !processManager.resume(currentSession)
+                                                        } else {
+                                                            !processManager.restart()
+                                                        }
                                                     }
-
-                                                    // start the new process
-                                                    processManager.directory = it.directory
-                                                    directoryMissing = if (session.isClaudeSession) {
-                                                        !processManager.resume(currentSession)
-                                                    } else {
-                                                        !processManager.restart()
-                                                    }
+                                                    if (thinking) confirmSwitchSession = doSwitch else doSwitch()
                                                 },
                                                 onDeleteClick = { deleteSession(session.id) }
                                             )
@@ -592,6 +593,52 @@ fun App(processManager: ProcessManager) {
                                         )
                                     ) {
                                         Text("Delete")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                confirmSwitchSession?.let { doSwitch ->
+                    Dialog(onDismissRequest = { confirmSwitchSession = null }) {
+                        Card(
+                            shape = RoundedCornerShape(20.dp),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(24.dp).widthIn(min = 280.dp, max = 400.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Text(
+                                    text = "Session is still working",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Claude is currently working on a response. Switch sessions anyway?",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)
+                                ) {
+                                    OutlinedButton(onClick = { confirmSwitchSession = null }) {
+                                        Text("Cancel")
+                                    }
+                                    Button(
+                                        onClick = {
+                                            confirmSwitchSession = null
+                                            doSwitch()
+                                        },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = MaterialTheme.colorScheme.error,
+                                            contentColor = MaterialTheme.colorScheme.onError
+                                        )
+                                    ) {
+                                        Text("Switch")
                                     }
                                 }
                             }
@@ -882,13 +929,6 @@ fun ProjectSidebarItem(
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f)
                         )
-                        IconButton(onClick = { onCreateSession(project) }) {
-                            Icon(
-                                painter = painterResource(Res.drawable.chat_add),
-                                contentDescription = "Chat",
-                                tint = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
-                            )
-                        }
                         IconButton(
                             onClick = { onDeleteClick() },
                             modifier = Modifier.alpha(if (isHovered) 1f else 0f)
@@ -897,6 +937,13 @@ fun ProjectSidebarItem(
                                 painter = painterResource(Res.drawable.delete),
                                 contentDescription = "Delete",
                                 tint = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                        IconButton(onClick = { onCreateSession(project) }) {
+                            Icon(
+                                painter = painterResource(Res.drawable.chat_add),
+                                contentDescription = "Chat",
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
                             )
                         }
                     }
