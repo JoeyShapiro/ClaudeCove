@@ -23,7 +23,6 @@ class ProcessManager(private val scope: CoroutineScope) {
     // TODO support plugins
     // TODO stat folder
     // TODO open here
-    // TODO remove project
     // TODO custom icon
     fun start(vararg command: String) {
         this.command = command

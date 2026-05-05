@@ -205,6 +205,7 @@ fun App(processManager: ProcessManager) {
             var askingRequest: Claude.RequestTool? by remember { mutableStateOf(null) }
             var askingRequestId by remember { mutableStateOf("") }
             var showSettings by remember { mutableStateOf(false) }
+            var confirmDeleteProject by remember { mutableStateOf<Project?>(null) }
             val listState = rememberLazyListState()
             val scope = rememberCoroutineScope()
 
@@ -230,6 +231,23 @@ fun App(processManager: ProcessManager) {
                 sessions = transaction {
                     Sessions.selectAll().map { Session.from(it) }
                 }
+            }
+
+            fun deleteProject(projectId: String) {
+                val sessionIds = sessions.filter { it.project == projectId }.map { it.id }
+                transaction {
+                    sessionIds.forEach { sid -> Messages.deleteWhere { Messages.session eq sid } }
+                    Sessions.deleteWhere { Sessions.project eq projectId }
+                    Projects.deleteWhere { Projects.id eq projectId }
+                }
+                if (currentSession in sessionIds) {
+                    currentSession = ""
+                    config.upSession("")
+                    messages = emptyList()
+                    processManager.restart()
+                }
+                sessions = transaction { Sessions.selectAll().map { Session.from(it) } }
+                projects = transaction { Projects.selectAll().map { Project.from(it) } }
             }
 
             fun createNewSession(project: String? = null, directory: File? = null) {
@@ -472,6 +490,14 @@ fun App(processManager: ProcessManager) {
                                                             },
                                     onCreateSession = {
                                         createNewSession(project = it.id, directory = it.directory)
+                                    },
+                                    onDeleteClick = {
+                                        val hasSessions = sessions.any { s -> s.project == it.id }
+                                        if (hasSessions) {
+                                            confirmDeleteProject = it
+                                        } else {
+                                            deleteProject(it.id)
+                                        }
                                     }
                                 ) {
                                     sessions.forEach { session ->
@@ -516,6 +542,53 @@ fun App(processManager: ProcessManager) {
                                     contentDescription = "Settings",
                                     tint = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
                                 )
+                            }
+                        }
+                    }
+                }
+
+                confirmDeleteProject?.let { project ->
+                    val sessionCount = sessions.count { it.project == project.id }
+                    Dialog(onDismissRequest = { confirmDeleteProject = null }) {
+                        Card(
+                            shape = RoundedCornerShape(20.dp),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(24.dp).widthIn(min = 280.dp, max = 400.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Text(
+                                    text = "Delete \"${project.name}\"?",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "This will permanently delete the project and $sessionCount session${if (sessionCount == 1) "" else "s"} within it.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)
+                                ) {
+                                    OutlinedButton(onClick = { confirmDeleteProject = null }) {
+                                        Text("Cancel")
+                                    }
+                                    Button(
+                                        onClick = {
+                                            deleteProject(project.id)
+                                            confirmDeleteProject = null
+                                        },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = MaterialTheme.colorScheme.error,
+                                            contentColor = MaterialTheme.colorScheme.onError
+                                        )
+                                    ) {
+                                        Text("Delete")
+                                    }
+                                }
                             }
                         }
                     }
@@ -703,59 +776,88 @@ fun PermissionPrompt(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ProjectSidebarItem(
     project: Project,
     selected: Boolean,
     onCreateSession: (Project) -> Unit,
+    onDeleteClick: () -> Unit,
     content: @Composable ColumnScope.() -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
     val chevronRotation by animateFloatAsState(targetValue = if (expanded) 0f else -90f)
+    val interactionSource = remember { MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
 
     Column {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { expanded = !expanded },
-            shape = RoundedCornerShape(12.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = if (selected) MaterialTheme.colorScheme.tertiaryContainer
-                                 else MaterialTheme.colorScheme.surface,
-                contentColor = if (selected) MaterialTheme.colorScheme.onTertiaryContainer
-                               else MaterialTheme.colorScheme.onSurface
-            )
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
-            ) {
-                Text(
-                    text = "▾",
-                    fontSize = 18.sp,
-                    modifier = Modifier
-                            .rotate(chevronRotation)
-                            .alpha(0.6f)
-                )
-                Text(
-                    text = project.name,
-                    style = MaterialTheme.typography.titleSmall,
-                    modifier = Modifier.weight(1f)
-                )
-                IconButton(
-                    onClick = {
-                        onCreateSession(project)
-                    }
-                ) {
-                    Icon(
-                        painter = painterResource(Res.drawable.chat_add),
-                        contentDescription = "Chat",
-                        tint = MaterialTheme.colorScheme.onSecondaryContainer.copy(
-                            alpha = 0.7f
+        Box(modifier = Modifier.fillMaxWidth().hoverable(interactionSource)) {
+            TooltipArea(
+                tooltip = {
+                    Card(
+                        shape = RoundedCornerShape(6.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        Text(
+                            text = project.directory.absolutePath,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                         )
+                    }
+                }
+            ) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { expanded = !expanded },
+                    shape = RoundedCornerShape(12.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (selected) MaterialTheme.colorScheme.tertiaryContainer
+                                         else MaterialTheme.colorScheme.surface,
+                        contentColor = if (selected) MaterialTheme.colorScheme.onTertiaryContainer
+                                       else MaterialTheme.colorScheme.onSurface
                     )
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+                    ) {
+                        Text(
+                            text = "▾",
+                            fontSize = 18.sp,
+                            modifier = Modifier
+                                    .rotate(chevronRotation)
+                                    .alpha(0.6f)
+                        )
+                        Text(
+                            text = project.name,
+                            style = MaterialTheme.typography.titleSmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(onClick = { onCreateSession(project) }) {
+                            Icon(
+                                painter = painterResource(Res.drawable.chat_add),
+                                contentDescription = "Chat",
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+                            )
+                        }
+                        IconButton(
+                            onClick = { onDeleteClick() },
+                            modifier = Modifier.alpha(if (isHovered) 1f else 0f)
+                        ) {
+                            Icon(
+                                painter = painterResource(Res.drawable.delete),
+                                contentDescription = "Delete",
+                                tint = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                    }
                 }
             }
         }
