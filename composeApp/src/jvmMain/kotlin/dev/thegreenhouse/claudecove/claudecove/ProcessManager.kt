@@ -22,7 +22,6 @@ class ProcessManager(private val scope: CoroutineScope) {
     // TODO use session id created from claude
     // TODO use streaming
     // TODO support plugins
-    // TODO use session --resume session_id
     fun start(vararg command: String) {
         this.command = command
         process = ProcessBuilder(*command)
@@ -55,5 +54,10 @@ class ProcessManager(private val scope: CoroutineScope) {
     fun restart() {
         this.stop()
         this.start(*this.command)
+    }
+
+    fun resume(session: String) {
+        this.stop()
+        this.start(*this.command, "--resume", session)
     }
 }

@@ -138,7 +138,7 @@ fun App(processManager: ProcessManager) {
                         .map { Project.from(it) }
                         .firstOrNull()?.let { project ->
                             processManager.directory = project.directory
-                            processManager.restart()
+                            processManager.resume(config.session)
                         }
             }
         }
@@ -430,7 +430,7 @@ fun App(processManager: ProcessManager) {
 
                                             // start the new process
                                             processManager.directory = null
-                                            processManager.restart()
+                                            processManager.resume(currentSession)
                                         },
                                         onDeleteClick = {
                                             transaction {
@@ -473,7 +473,7 @@ fun App(processManager: ProcessManager) {
 
                                                     // start the new process
                                                     processManager.directory = it.directory
-                                                    processManager.restart()
+                                                    processManager.resume(currentSession)
                                                 },
                                                 onDeleteClick = {
                                                     transaction {
