@@ -19,12 +19,12 @@ class ProcessManager(private val scope: CoroutineScope) {
     // TODO fail if folder doesnt exist
     // TODO ping when done
     // TODO add buddy
-    // TODO use session id created from claude
     // TODO use streaming
     // TODO support plugins
     // TODO stat folder
     // TODO open here
     // TODO remove project
+    // TODO custom icon
     fun start(vararg command: String) {
         this.command = command
         process = ProcessBuilder(*command)

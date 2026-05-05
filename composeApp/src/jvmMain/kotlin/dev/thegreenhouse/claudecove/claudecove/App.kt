@@ -219,6 +219,16 @@ fun App(processManager: ProcessManager) {
                         .map { Message.from(it) }
             }
 
+            fun deleteSession(sessionId: String) {
+                transaction {
+                    Sessions.deleteWhere { Sessions.id eq sessionId }
+                    Messages.deleteWhere { Messages.session eq sessionId }
+                }
+                sessions = transaction {
+                    Sessions.selectAll().map { Session.from(it) }
+                }
+            }
+
             fun createNewSession(project: String? = null, directory: File? = null) {
                 val newSession = Session(name = "New Session", project = project)
                 sessions = sessions + newSession
@@ -446,16 +456,7 @@ fun App(processManager: ProcessManager) {
                                                 processManager.restart()
                                             }
                                         },
-                                        onDeleteClick = {
-                                            transaction {
-                                                Sessions.deleteWhere { Sessions.id eq session.id }
-                                                Messages.deleteWhere { Messages.session eq session.id }
-                                                sessions = transaction {
-                                                    Sessions.selectAll()
-                                                            .map { Session.from(it) }
-                                                }
-                                            }
-                                        }
+                                        onDeleteClick = { deleteSession(session.id) }
                                     )
                                 }
                             }
@@ -493,16 +494,7 @@ fun App(processManager: ProcessManager) {
                                                         processManager.restart()
                                                     }
                                                 },
-                                                onDeleteClick = {
-                                                    transaction {
-                                                        Sessions.deleteWhere { Sessions.id eq session.id }
-                                                        Messages.deleteWhere { Messages.session eq session.id }
-                                                        sessions = transaction {
-                                                            Sessions.selectAll()
-                                                                    .map { Session.from(it) }
-                                                        }
-                                                    }
-                                                }
+                                                onDeleteClick = { deleteSession(session.id) }
                                             )
                                         }
                                     }
