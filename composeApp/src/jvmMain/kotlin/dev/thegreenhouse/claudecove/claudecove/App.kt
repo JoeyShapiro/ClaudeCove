@@ -80,6 +80,7 @@ import dev.snipme.highlights.Highlights
 import dev.snipme.highlights.model.SyntaxThemes
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerializationException
+import java.awt.Toolkit
 import java.util.UUID
 import kotlinx.serialization.json.Json
 import kotlinx.coroutines.CoroutineScope
@@ -322,6 +323,7 @@ fun App(processManager: ProcessManager) {
                                     }
                                 }
                                 thinking = false
+                                Toolkit.getDefaultToolkit().beep()
                             }
                             is Claude.RequestControl<*> -> {
                                 when (val request = event.request) {

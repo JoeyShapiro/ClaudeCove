@@ -16,11 +16,10 @@ class ProcessManager(private val scope: CoroutineScope) {
 
     val stdout = MutableSharedFlow<String>()
 
-    // TODO ping when done
     // TODO add buddy
     // TODO use streaming
     // TODO support plugins
-    // TODO open here
+    // TODO show pending changes
     // TODO custom icon
     fun start(vararg command: String): Boolean {
         val cwd = this.directory ?: File(System.getProperty("java.io.tmpdir"))
