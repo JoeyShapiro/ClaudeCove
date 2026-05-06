@@ -67,14 +67,14 @@ compose.desktop {
                 upgradeUuid = "your-uuid-here"  // stable UUID for MSI upgrades
                 dirChooser = true
                 perUserInstall = true
-                iconFile.set(project.file("src/desktopMain/resources/icon.ico"))
+                iconFile.set(project.file("src/jvmMain/resources/icon.ico"))
             }
             macOS {
                 bundleID = "com.yourapp.desktop"
-//                iconFile.set(project.file("src/desktopMain/resources/icon.icns"))
+                iconFile.set(project.file("src/jvmMain/resources/icon.icns"))
             }
             linux {
-//                iconFile.set(project.file("src/desktopMain/resources/icon.png"))
+                iconFile.set(project.file("src/jvmMain/resources/icon-512.png"))
             }
         }
     }
