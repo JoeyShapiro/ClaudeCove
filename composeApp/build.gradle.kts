@@ -48,7 +48,7 @@ compose.desktop {
 
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-            packageName = "dev.thegreenhouse.claudecove.claudecove"
+            packageName = "Claude Cove"
             packageVersion = "1.0.0"
 
             targetFormats(
@@ -63,7 +63,7 @@ compose.desktop {
             modules("java.sql")
 
             windows {
-                menuGroup = "YourApp"
+                menuGroup = "Claude Cove"
                 upgradeUuid = "your-uuid-here"  // stable UUID for MSI upgrades
                 dirChooser = true
                 perUserInstall = true
