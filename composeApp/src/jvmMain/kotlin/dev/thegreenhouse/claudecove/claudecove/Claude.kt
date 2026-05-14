@@ -98,6 +98,13 @@ class Claude {
                     }
                 }
                 "result"                                        -> jsonConfiguration.decodeFromJsonElement<ResponseResult>(json)
+                "stream_event" -> {
+                    val streamType = json["event"]?.jsonObject?.get("type")?.jsonPrimitive?.content
+                    when (streamType) {
+                        "content_block_start", "content_block_delta", "content_block_stop" -> jsonConfiguration.decodeFromJsonElement<StreamEvent>(json)
+                        else -> throw SerializationException("Unknown event type: $type / $streamType")
+                    }
+                }
                 else                                            -> throw SerializationException("Unknown event type: $type")
             }
         }
@@ -319,6 +326,23 @@ class Claude {
         val oldString: String? = null,
         val newString: String? = null,
         val replaceAll: Boolean? = null,
+    )
+
+    @Serializable
+    data class StreamEvent(
+        val type: String,
+        val event: StreamEventEvent,
+        val sessionId: String,
+        val parentToolUseId: String? = null,
+        val uuid: String,
+    ) : Event()
+
+    @Serializable
+    data class StreamEventEvent(
+        val type: String,
+        val index: Int,
+        val contentBlock: Content? = null,
+        val delta: Content? = null,
     )
 
     companion object {

@@ -17,9 +17,11 @@ class ProcessManager(private val scope: CoroutineScope) {
     val stdout = MutableSharedFlow<String>()
 
     // TODO add buddy
-    // TODO use streaming
     // TODO support plugins
     // TODO show pending changes
+    // TODO interrupt
+    // TODO limit usages
+    // TODO tables dont render fully
     fun start(vararg command: String): Boolean {
         val cwd = this.directory ?: File(System.getProperty("java.io.tmpdir"))
         if (!cwd.exists()) return false

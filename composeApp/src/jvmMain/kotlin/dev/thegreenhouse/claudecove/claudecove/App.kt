@@ -86,6 +86,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.painterResource
@@ -202,6 +203,8 @@ fun App(processManager: ProcessManager) {
             var currentSession by remember { mutableStateOf(config.session) }
             var messages by remember { mutableStateOf(listOf<Message>()) }
             var thinking by remember { mutableStateOf(false) }
+            var streaming by remember { mutableStateOf(false) }
+            var streamingText by remember { mutableStateOf("") }
             var askingPermission by remember { mutableStateOf(false) }
             var askingRequest: Claude.RequestTool? by remember { mutableStateOf(null) }
             var askingRequestId by remember { mutableStateOf("") }
@@ -322,6 +325,8 @@ fun App(processManager: ProcessManager) {
                                         it[timestamp] = newMessage.timestamp
                                     }
                                 }
+                                streamingText = ""
+                                streaming = false
                                 thinking = false
                                 Toolkit.getDefaultToolkit().beep()
                             }
@@ -368,6 +373,18 @@ fun App(processManager: ProcessManager) {
                                 }
                                 currentSession = newId
                             }
+                            is Claude.StreamEvent -> {
+                                when (event.event.type) {
+                                    "content_block_start" -> {
+                                        streaming = true
+                                        thinking = false
+                                    }
+                                    "content_block_delta" -> {
+                                        streamingText += event.event.delta?.text ?: ""
+                                    }
+                                    "content_block_stop" -> {}
+                                }
+                            }
                         }
                     } catch (e: SerializationException) {
                         println(e.localizedMessage)
@@ -380,6 +397,14 @@ fun App(processManager: ProcessManager) {
             LaunchedEffect(messages.size) {
                 if (messages.isNotEmpty()) {
                     listState.animateScrollToItem(messages.lastIndex)
+                }
+            }
+
+            LaunchedEffect(streaming) {
+                if (streaming) {
+                    snapshotFlow { streamingText }
+                        .filter { it.isNotEmpty() }
+                        .collect { listState.scrollToItem(messages.size) }
                 }
             }
 
@@ -682,6 +707,11 @@ fun App(processManager: ProcessManager) {
                     ) {
                         items(items = messages) { message ->
                             ChatBubble(message, isDark)
+                        }
+                        if (streaming && streamingText.isNotEmpty()) {
+                            item {
+                                StreamingChatBubble(streamingText, isDark)
+                            }
                         }
                     }
 
@@ -1388,6 +1418,70 @@ fun ChatBubble(message: Message, isDarkMode: Boolean) {
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun StreamingChatBubble(text: String, isDarkMode: Boolean) {
+    var cursorVisible by remember { mutableStateOf(true) }
+    val highlightsBuilder = remember(isDarkMode) {
+        Highlights.Builder().theme(SyntaxThemes.atom(darkMode = isDarkMode))
+    }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(530)
+            cursorVisible = !cursorVisible
+        }
+    }
+
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val bubbleMaxWidth = maxWidth * 0.75f
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Start
+        ) {
+            Column(
+                modifier = Modifier
+                    .widthIn(max = bubbleMaxWidth)
+                    .background(
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.75f),
+                        shape = RoundedCornerShape(16.dp)
+                    )
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+            ) {
+                SelectionContainer {
+                    Markdown(
+                        content = text,
+                        colors = markdownColor(text = MaterialTheme.colorScheme.onPrimary),
+                        components = markdownComponents(
+                            codeBlock = {
+                                MarkdownHighlightedCodeBlock(
+                                    content = it.content,
+                                    node = it.node,
+                                    highlightsBuilder = highlightsBuilder,
+                                    showHeader = true,
+                                )
+                            },
+                            codeFence = {
+                                MarkdownHighlightedCodeFence(
+                                    content = it.content,
+                                    node = it.node,
+                                    highlightsBuilder = highlightsBuilder,
+                                    showHeader = true,
+                                )
+                            },
+                        )
+                    )
+                }
+                Text(
+                    text = if (cursorVisible) "▊" else " ",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
+                )
             }
         }
     }
