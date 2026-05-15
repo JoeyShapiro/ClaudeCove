@@ -73,6 +73,7 @@ import claudecove.composeapp.generated.resources.copy
 import claudecove.composeapp.generated.resources.delete
 import claudecove.composeapp.generated.resources.folder_new
 import claudecove.composeapp.generated.resources.gear
+import claudecove.composeapp.generated.resources.stop
 import com.mikepenz.markdown.compose.components.markdownComponents
 import com.mikepenz.markdown.compose.elements.MarkdownHighlightedCodeBlock
 import com.mikepenz.markdown.compose.elements.MarkdownHighlightedCodeFence
@@ -765,7 +766,33 @@ fun App(processManager: ProcessManager) {
                         }
                     }
 
-                    ThinkingFlavorText(isWorking)
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        ThinkingFlavorText(isWorking)
+                        Spacer(modifier = Modifier.weight(1f))
+                        AnimatedVisibility(visible = isWorking) {
+                            IconButton(onClick = {
+                                val response = Claude.RequestControl.interrupt()
+                                processManager.sendLine(json.encodeToString(response))
+
+                                isWorking = false
+                                streaming = false
+                                streamingText = ""
+                                isStreamingThought = false
+                                askingPermission = false
+                                askingRequest = null
+                                askingRequestId = ""
+                            }) {
+                                Icon(
+                                    painter = painterResource(Res.drawable.stop),
+                                    contentDescription = "Interrupt",
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
+                    }
 
                     if (askingPermission) {
                         PermissionPrompt(

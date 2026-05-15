@@ -305,7 +305,22 @@ class Claude {
         val type: String,
         val requestId: String,
         val request: T,
-    ) : Event()
+    ) : Event() {
+        companion object {
+            fun interrupt() = RequestControl(
+                type = "control_request",
+                requestId = "",
+                request = RequestSubtype(
+                    subtype = "interrupt"
+                )
+            )
+        }
+    }
+
+    @Serializable
+    data class RequestSubtype (
+        val subtype: String,
+    )
 
     @Serializable
     data class RequestHookCallback (
