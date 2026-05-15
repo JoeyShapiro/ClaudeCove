@@ -97,15 +97,18 @@ class Claude {
                         else -> throw SerializationException("Unknown event type: $type / $subtype")
                     }
                 }
-                "result"                                        -> jsonConfiguration.decodeFromJsonElement<ResponseResult>(json)
+                "result" -> jsonConfiguration.decodeFromJsonElement<ResponseResult>(json)
                 "stream_event" -> {
                     val streamType = json["event"]?.jsonObject?.get("type")?.jsonPrimitive?.content
+                    // content block also has a subtype for thinking. which seems odd and cumbersome
+                    // i could also parse it here, and give it a struct, but im annoyed now
+                    // that can just be handled by the type on post
                     when (streamType) {
                         "content_block_start", "content_block_delta", "content_block_stop" -> jsonConfiguration.decodeFromJsonElement<StreamEvent>(json)
                         else -> throw SerializationException("Unknown event type: $type / $streamType")
                     }
                 }
-                else                                            -> throw SerializationException("Unknown event type: $type")
+                else -> throw SerializationException("Unknown event type: $type")
             }
         }
 
@@ -188,7 +191,12 @@ class Claude {
     data class Message (val role: String, val content: List<Content>)
 
     @Serializable
-    data class Content (val type: String, val text: String)
+    data class Content (
+        val type: String,
+        val text: String? = null,
+        val thinking: String? = null,
+        val signature: String? = null,
+    )
 
     @Serializable
     data class ResponseResult (

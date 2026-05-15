@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.LocalTextSelectionColors
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -61,6 +62,7 @@ import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.style.TextOverflow
@@ -202,9 +204,10 @@ fun App(processManager: ProcessManager) {
             var sessions by remember { mutableStateOf(listOf<Session>()) }
             var currentSession by remember { mutableStateOf(config.session) }
             var messages by remember { mutableStateOf(listOf<Message>()) }
-            var thinking by remember { mutableStateOf(false) }
+            var isWorking by remember { mutableStateOf(false) }
             var streaming by remember { mutableStateOf(false) }
             var streamingText by remember { mutableStateOf("") }
+            var isStreamingThought by remember { mutableStateOf(false) }
             var askingPermission by remember { mutableStateOf(false) }
             var askingRequest: Claude.RequestTool? by remember { mutableStateOf(null) }
             var askingRequestId by remember { mutableStateOf("") }
@@ -313,7 +316,7 @@ fun App(processManager: ProcessManager) {
                                 val newMessage = Message(
                                     session = currentSession,
                                     text = event.result,
-                                    fromSelf = false
+                                    from = "assistant"
                                 )
                                 messages = messages + newMessage
                                 transaction {
@@ -321,13 +324,14 @@ fun App(processManager: ProcessManager) {
                                         it[id]        = newMessage.id
                                         it[session]   = newMessage.session
                                         it[text]      = newMessage.text
-                                        it[fromSelf]  = newMessage.fromSelf
+                                        it[sender]    = newMessage.from
                                         it[timestamp] = newMessage.timestamp
                                     }
                                 }
                                 streamingText = ""
                                 streaming = false
-                                thinking = false
+                                isWorking = false
+                                isStreamingThought = false
                                 Toolkit.getDefaultToolkit().beep()
                             }
                             is Claude.RequestControl<*> -> {
@@ -376,11 +380,43 @@ fun App(processManager: ProcessManager) {
                             is Claude.StreamEvent -> {
                                 when (event.event.type) {
                                     "content_block_start" -> {
-                                        streaming = true
-                                        thinking = false
+                                        when (event.event.contentBlock?.type) {
+                                            "text" -> {
+                                                if (isStreamingThought && streamingText.isNotEmpty()) {
+                                                    val thought = Message(
+                                                        session = currentSession,
+                                                        text = streamingText,
+                                                        from = "thought"
+                                                    )
+                                                    messages = messages + thought
+                                                    transaction {
+                                                        Messages.insert {
+                                                            it[id]        = thought.id
+                                                            it[session]   = thought.session
+                                                            it[text]      = thought.text
+                                                            it[sender]    = thought.from
+                                                            it[timestamp] = thought.timestamp
+                                                        }
+                                                    }
+                                                    streamingText = ""
+                                                }
+                                                isStreamingThought = false
+                                                streaming = true
+                                            }
+                                            "thinking" -> {
+                                                isStreamingThought = true
+                                            }
+                                        }
                                     }
                                     "content_block_delta" -> {
-                                        streamingText += event.event.delta?.text ?: ""
+                                        when (event.event.delta?.type) {
+                                            "text_delta" -> {
+                                                streamingText += event.event.delta.text ?: ""
+                                            }
+                                            "thinking_delta" -> {
+                                                streamingText += event.event.delta.thinking ?: ""
+                                            }
+                                        }
                                     }
                                     "content_block_stop" -> {}
                                 }
@@ -402,6 +438,14 @@ fun App(processManager: ProcessManager) {
 
             LaunchedEffect(streaming) {
                 if (streaming) {
+                    snapshotFlow { streamingText }
+                        .filter { it.isNotEmpty() }
+                        .collect { listState.scrollToItem(messages.size) }
+                }
+            }
+
+            LaunchedEffect(isStreamingThought) {
+                if (isStreamingThought) {
                     snapshotFlow { streamingText }
                         .filter { it.isNotEmpty() }
                         .collect { listState.scrollToItem(messages.size) }
@@ -508,7 +552,7 @@ fun App(processManager: ProcessManager) {
                                                     !processManager.restart()
                                                 }
                                             }
-                                            if (thinking) confirmSwitchSession = doSwitch else doSwitch()
+                                            if (isWorking) confirmSwitchSession = doSwitch else doSwitch()
                                         },
                                         onDeleteClick = { deleteSession(session.id) }
                                     )
@@ -554,7 +598,7 @@ fun App(processManager: ProcessManager) {
                                                             !processManager.restart()
                                                         }
                                                     }
-                                                    if (thinking) confirmSwitchSession = doSwitch else doSwitch()
+                                                    if (isWorking) confirmSwitchSession = doSwitch else doSwitch()
                                                 },
                                                 onDeleteClick = { deleteSession(session.id) }
                                             )
@@ -706,7 +750,13 @@ fun App(processManager: ProcessManager) {
                         reverseLayout = false
                     ) {
                         items(items = messages) { message ->
-                            ChatBubble(message, isDark)
+                            if (message.from == "thought") ThinkingBubble(message.text)
+                            else ChatBubble(message, isDark)
+                        }
+                        if (isStreamingThought && streamingText.isNotEmpty()) {
+                            item {
+                                ThinkingBubble(streamingText)
+                            }
                         }
                         if (streaming && streamingText.isNotEmpty()) {
                             item {
@@ -715,7 +765,7 @@ fun App(processManager: ProcessManager) {
                         }
                     }
 
-                    ThinkingFlavorText(thinking)
+                    ThinkingFlavorText(isWorking)
 
                     if (askingPermission) {
                         PermissionPrompt(
@@ -816,11 +866,11 @@ fun App(processManager: ProcessManager) {
                                             val data = json.encodeToString(prompt)
 
                                             processManager.sendLine(data)
-                                            thinking = true
+                                            isWorking = true
                                             val newMessage = Message(
                                                 session = currentSession,
                                                 text = input,
-                                                fromSelf = true
+                                                from = "user"
                                             )
                                             messages = messages + newMessage
                                             transaction {
@@ -829,7 +879,7 @@ fun App(processManager: ProcessManager) {
                                                     it[id]        = newMessage.id
                                                     it[session]   = newMessage.session
                                                     it[text]      = newMessage.text
-                                                    it[fromSelf]  = newMessage.fromSelf
+                                                    it[sender]    = newMessage.from
                                                     it[timestamp] = newMessage.timestamp
                                                 }
                                             }
@@ -1056,7 +1106,7 @@ data class Message(
     val id: String = UUID.randomUUID().toString(),
     val session: String,
     val text: String,
-    val fromSelf: Boolean,
+    val from: String,
     val timestamp: Long = System.currentTimeMillis()
 ) {
     companion object {
@@ -1065,7 +1115,7 @@ data class Message(
                 id = row[Messages.id],
                 session = row[Messages.session],
                 text = row[Messages.text],
-                fromSelf = row[Messages.fromSelf],
+                from = row[Messages.sender],
                 timestamp = row[Messages.timestamp]
             )
         }
@@ -1076,7 +1126,7 @@ object Messages : Table("messages") {
     val id        = varchar("id", 36)
     val session   = varchar("session", 36)
     val text      = text("text")
-    val fromSelf  = bool("from_self")
+    val sender    = varchar("sender", 16)
     val timestamp = long("timestamp")
 
     override val primaryKey = PrimaryKey(Projects.id)
@@ -1349,7 +1399,7 @@ fun ChatBubble(message: Message, isDarkMode: Boolean) {
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = if (message.fromSelf) Arrangement.End else Arrangement.Start
+            horizontalArrangement = if (message.from == "user") Arrangement.End else Arrangement.Start
         ) {
             Box(
                 modifier = Modifier
@@ -1481,6 +1531,67 @@ fun StreamingChatBubble(text: String, isDarkMode: Boolean) {
                     text = if (cursorVisible) "▊" else " ",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun ThinkingBubble(text: String) {
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val bubbleMaxWidth = maxWidth * 0.65f
+
+        Column(
+            modifier = Modifier.widthIn(max = bubbleMaxWidth),
+            verticalArrangement = Arrangement.spacedBy(3.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .background(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(20.dp)
+                    )
+                    .padding(horizontal = 14.dp, vertical = 10.dp)
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = "Thinking...",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
+                    )
+                    if (text.isNotEmpty()) {
+                        Text(
+                            text = text,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontStyle = FontStyle.Italic,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+                            maxLines = 8,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+            // Comic-style thought bubble tail: three circles descending in size
+            Row(
+                modifier = Modifier.padding(start = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.Bottom
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
+                )
+                Box(
+                    modifier = Modifier
+                        .size(5.dp)
+                        .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
+                )
+                Box(
+                    modifier = Modifier
+                        .size(3.dp)
+                        .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
                 )
             }
         }
