@@ -7,10 +7,10 @@ import java.util.UUID
 import kotlinx.serialization.*
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.descriptors.buildClassSerialDescriptor
-import kotlinx.serialization.descriptors.elementNames
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.*
+import kotlin.time.Instant
 
 // Use on a property to emit a specific JSON key, bypassing snake_case conversion.
 // Works like @SerialName but is detectable by SerialOrSnakeCase at runtime.
@@ -368,6 +368,61 @@ class Claude {
         val delta: Content? = null,
     )
 
+    @Serializable
+    data class Usage(
+        val fiveHour: Limit,
+        val sevenDay: Limit,
+        val sevenDayOauthApps: Limit? = null,
+        val sevenDayOpus: Limit? = null,
+        val sevenDaySonnet: Limit? = null,
+        val sevenDayCowork: Limit? = null,
+        val sevenDayOmelette: Limit? = null,
+        val tangelo: Limit? = null,
+        val iguanaNecktie: Limit? = null,
+        val omelettePromotional: Limit? = null,
+        val extraUsage: UsageExtra,
+    )
+
+    @Serializable
+    data class Limit (
+        val utilization: Float,
+        val resetsAt: Instant? = null,
+    )
+
+    @Serializable
+    data class UsageExtra(
+        val isEnabled: Boolean,
+        val monthlyLimit: Int,
+        val usedCredits: Float,
+        val utilization: String? = null,
+        val currency: String,
+        val disabledReason: String? = null,
+    )
+
+    @Serializable
+    data class Credentials(
+        @JsonName("claudeAiOauth")
+        val claudeAiOauth: ClaudeAiOauth,
+        @JsonName("organizationUuid")
+        val organizationUuid: String,
+    )
+
+    @Serializable
+    data class ClaudeAiOauth(
+        @JsonName("accessToken")
+        val accessToken: String,
+        @JsonName("refreshToken")
+        val refreshToken: String,
+        @JsonName("expiresAt")
+        val expiresAt: Long,
+        @JsonName("scopes")
+        val scopes: List<String>,
+        @JsonName("subscriptionType")
+        val subscriptionType: String,
+        @JsonName("rateLimitTier")
+        val rateLimitTier: String,
+    )
+
     companion object {
         val args = arrayOf(
             "--output-format",
@@ -406,6 +461,63 @@ class Claude {
             }
 
             return Result.success(file)
+        }
+
+        fun requestUsage(): Result<Usage> {
+            val os = System.getProperty("os.name").lowercase()
+            val credentialsJson: String = when {
+                os.contains("mac") -> {
+                    val username = System.getProperty("user.name")
+                    val process = ProcessBuilder(
+                        "security", "find-generic-password",
+                        "-a", username, "-w", "-s", "Claude Code-credentials"
+                    ).start()
+                    val output = process.inputStream.bufferedReader().readText().trim()
+                    val error = process.errorStream.bufferedReader().readText().trim()
+                    if (process.waitFor() != 0) {
+                        return Result.failure(RuntimeException("Failed to read credentials from keychain: $error"))
+                    }
+                    output
+                }
+                else -> {
+                    val credentialsFile = File(System.getProperty("user.home")).resolve(".claude/.credentials.json")
+                    if (!credentialsFile.exists()) {
+                        return Result.failure(FileNotFoundException("Credentials file not found: ${credentialsFile.absolutePath}"))
+                    }
+                    credentialsFile.readText()
+                }
+            }
+
+            val credentials = try {
+                EventSerializer.jsonConfiguration.decodeFromString<Credentials>(credentialsJson)
+            } catch (e: Exception) {
+                return Result.failure(RuntimeException("Failed to parse credentials: ${e.message}", e))
+            }
+
+            // TODO implement re-auth logic
+            if (credentials.claudeAiOauth.expiresAt < System.currentTimeMillis()) {
+                return Result.failure(RuntimeException("OAuth token has expired"))
+            }
+
+            val connection = java.net.URI("https://api.anthropic.com/api/oauth/usage")
+                .toURL().openConnection() as java.net.HttpURLConnection
+            connection.requestMethod = "GET"
+            connection.setRequestProperty("Authorization", "Bearer ${credentials.claudeAiOauth.accessToken}")
+            connection.setRequestProperty("anthropic-beta", "oauth-2025-04-20")
+            connection.setRequestProperty("Content-Type", "application/json")
+
+            val responseCode = connection.responseCode
+            if (responseCode != 200) {
+                val error = connection.errorStream?.bufferedReader()?.readText() ?: ""
+                return Result.failure(RuntimeException("HTTP $responseCode: $error"))
+            }
+
+            return try {
+                val body = connection.inputStream.bufferedReader().readText()
+                Result.success(EventSerializer.jsonConfiguration.decodeFromString<Usage>(body))
+            } catch (e: Exception) {
+                Result.failure(RuntimeException("Failed to parse usage response: ${e.message}", e))
+            }
         }
     }
 }
