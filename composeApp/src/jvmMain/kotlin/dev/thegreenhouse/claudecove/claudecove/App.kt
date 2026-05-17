@@ -85,8 +85,12 @@ import claudecove.composeapp.generated.resources.stop
 import com.mikepenz.markdown.compose.components.markdownComponents
 import com.mikepenz.markdown.compose.elements.MarkdownHighlightedCodeBlock
 import com.mikepenz.markdown.compose.elements.MarkdownHighlightedCodeFence
+import com.mikepenz.markdown.compose.elements.MarkdownTable
+import com.mikepenz.markdown.compose.elements.MarkdownTableHeader
+import com.mikepenz.markdown.compose.elements.MarkdownTableRow
 import com.mikepenz.markdown.m3.Markdown
 import com.mikepenz.markdown.m3.markdownColor
+import com.mikepenz.markdown.model.markdownDimens
 import dev.snipme.highlights.Highlights
 import dev.snipme.highlights.model.SyntaxThemes
 import kotlinx.serialization.ExperimentalSerializationApi
@@ -1564,6 +1568,7 @@ fun ChatBubble(message: Message, isDarkMode: Boolean) {
                             colors = markdownColor(
                                 text = MaterialTheme.colorScheme.onPrimary
                             ),
+                            dimens = markdownDimens(tableCellWidth = 240.dp),
                             components = markdownComponents(
                                 codeBlock = {
                                     MarkdownHighlightedCodeBlock(
@@ -1579,6 +1584,19 @@ fun ChatBubble(message: Message, isDarkMode: Boolean) {
                                         node = it.node,
                                         highlightsBuilder = highlightsBuilder,
                                         showHeader = true,
+                                    )
+                                },
+                                table = { model ->
+                                    MarkdownTable(
+                                        content = model.content,
+                                        node = model.node,
+                                        style = model.typography.table,
+                                        headerBlock = { c, h, w, s ->
+                                            MarkdownTableHeader(c, h, w, s, maxLines = Int.MAX_VALUE, overflow = TextOverflow.Clip)
+                                        },
+                                        rowBlock = { c, r, w, s ->
+                                            MarkdownTableRow(c, r, w, s, maxLines = Int.MAX_VALUE, overflow = TextOverflow.Clip)
+                                        },
                                     )
                                 },
                             )
@@ -1653,6 +1671,7 @@ fun StreamingChatBubble(text: String, isDarkMode: Boolean) {
                     Markdown(
                         content = text,
                         colors = markdownColor(text = MaterialTheme.colorScheme.onPrimary),
+                        dimens = markdownDimens(tableCellWidth = 240.dp),
                         components = markdownComponents(
                             codeBlock = {
                                 MarkdownHighlightedCodeBlock(
@@ -1668,6 +1687,19 @@ fun StreamingChatBubble(text: String, isDarkMode: Boolean) {
                                     node = it.node,
                                     highlightsBuilder = highlightsBuilder,
                                     showHeader = true,
+                                )
+                            },
+                            table = { model ->
+                                MarkdownTable(
+                                    content = model.content,
+                                    node = model.node,
+                                    style = model.typography.table,
+                                    headerBlock = { c, h, w, s ->
+                                        MarkdownTableHeader(c, h, w, s, maxLines = Int.MAX_VALUE, overflow = TextOverflow.Clip)
+                                    },
+                                    rowBlock = { c, r, w, s ->
+                                        MarkdownTableRow(c, r, w, s, maxLines = Int.MAX_VALUE, overflow = TextOverflow.Clip)
+                                    },
                                 )
                             },
                         )
