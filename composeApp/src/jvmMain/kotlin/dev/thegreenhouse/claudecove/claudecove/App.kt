@@ -2,6 +2,8 @@ package dev.thegreenhouse.claudecove.claudecove
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.TooltipArea
 import androidx.compose.foundation.background
@@ -53,7 +55,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.isShiftPressed
@@ -73,6 +79,8 @@ import claudecove.composeapp.generated.resources.copy
 import claudecove.composeapp.generated.resources.delete
 import claudecove.composeapp.generated.resources.folder_new
 import claudecove.composeapp.generated.resources.gear
+import claudecove.composeapp.generated.resources.hourglass
+import claudecove.composeapp.generated.resources.lunar
 import claudecove.composeapp.generated.resources.stop
 import com.mikepenz.markdown.compose.components.markdownComponents
 import com.mikepenz.markdown.compose.elements.MarkdownHighlightedCodeBlock
@@ -92,6 +100,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import java.io.File
 import kotlin.collections.plus
@@ -110,6 +119,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
+import kotlin.time.toJavaInstant
 
 @OptIn(ExperimentalSerializationApi::class)
 @Composable
@@ -218,6 +228,7 @@ fun App(processManager: ProcessManager) {
             var directoryMissing by remember { mutableStateOf(false) }
             val listState = rememberLazyListState()
             val scope = rememberCoroutineScope()
+            var usage: Claude.Usage? by remember { mutableStateOf(null) }
 
             sessions = transaction {
                 Sessions.selectAll()
@@ -227,6 +238,8 @@ fun App(processManager: ProcessManager) {
                 Projects.selectAll()
                         .map { Project.from(it) }
             }
+
+            usage = Claude.requestUsage().getOrDefault(null)
 
             LaunchedEffect(Unit) {
                 directoryMissing = processManager.directory?.let { !it.exists() } ?: false
@@ -612,13 +625,30 @@ fun App(processManager: ProcessManager) {
                         Divider(color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.12f))
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp),
-                            horizontalArrangement = Arrangement.Start
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             IconButton(onClick = { showSettings = true }) {
                                 Icon(
                                     painter = painterResource(Res.drawable.gear),
                                     contentDescription = "Settings",
                                     tint = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+                                )
+                            }
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(end = 8.dp)
+                            ) {
+                                UsageRing(
+                                    limit = usage?.fiveHour,
+                                    label = "Session (5hr)",
+                                    icon  = Res.drawable.hourglass,
+                                )
+                                UsageRing(
+                                    limit = usage?.sevenDay,
+                                    label = "Weekly (7d)",
+                                    icon  = Res.drawable.lunar,
                                 )
                             }
                         }
@@ -924,6 +954,86 @@ fun App(processManager: ProcessManager) {
                     }
                 }
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun UsageRing(
+    limit: Claude.Limit?,
+    label: String,
+    modifier: Modifier = Modifier,
+    icon: DrawableResource
+) {
+    val utilization = limit?.utilization ?: 0f
+    val resetsAt = limit?.resetsAt?.let { formatResetsAt(it.toJavaInstant()) } ?: "unknown"
+
+    val progress by animateFloatAsState(
+        targetValue = (utilization / 100f).coerceIn(0f, 1f),
+        animationSpec = tween(durationMillis = 800)
+    )
+    val ringColor = when {
+        utilization >= 90f -> MaterialTheme.colorScheme.error
+        utilization >= 70f -> Color(0xFFFFA000)
+        else               -> MaterialTheme.colorScheme.primary
+    }
+    val trackColor = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.15f)
+    val labelColor = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.75f)
+
+    TooltipArea(
+        tooltip = {
+            Card(
+                shape = RoundedCornerShape(6.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Text(
+                    text = "$label: ${utilization.toInt()}% resets at $resetsAt",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                )
+            }
+        }
+    ) {
+        Box(
+            modifier = modifier.size(36.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val strokeWidth = 3.dp.toPx()
+                val inset = strokeWidth / 2f
+                val arcSize = Size(size.width - strokeWidth, size.height - strokeWidth)
+                val topLeft = Offset(inset, inset)
+
+                drawArc(
+                    color = trackColor,
+                    startAngle = -90f,
+                    sweepAngle = 360f,
+                    useCenter = false,
+                    topLeft = topLeft,
+                    size = arcSize,
+                    style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                )
+                if (progress > 0f) {
+                    drawArc(
+                        color = ringColor,
+                        startAngle = -90f,
+                        sweepAngle = 360f * progress,
+                        useCenter = false,
+                        topLeft = topLeft,
+                        size = arcSize,
+                        style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                    )
+                }
+            }
+            Icon(
+                painter = painterResource(icon),
+                contentDescription = label,
+                tint = labelColor,
+                modifier = Modifier.size(16.dp)
+            )
         }
     }
 }
@@ -1623,6 +1733,15 @@ fun ThinkingBubble(text: String) {
             }
         }
     }
+}
+
+fun formatResetsAt(instant: Instant): String {
+    val zone = ZoneId.systemDefault()
+    val zdt = instant.atZone(zone)
+    val hoursUntil = Duration.between(Instant.now(), instant).toHours()
+    val timePart = zdt.format(DateTimeFormatter.ofPattern("h:mma")).lowercase()
+    return if (hoursUntil < 24) timePart
+    else zdt.format(DateTimeFormatter.ofPattern("MMM d ")) + timePart
 }
 
 fun formatRelativeTime(timestamp: Long): String {
