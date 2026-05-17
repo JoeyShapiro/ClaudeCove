@@ -228,7 +228,12 @@ fun App(processManager: ProcessManager) {
             var directoryMissing by remember { mutableStateOf(false) }
             val listState = rememberLazyListState()
             val scope = rememberCoroutineScope()
-            var usage: Claude.Usage? by remember { mutableStateOf(null) }
+            var usage: Claude.Usage? by remember {
+                mutableStateOf(
+                    Claude.requestUsage()
+                            .getOrDefault(null)
+                )
+            }
 
             sessions = transaction {
                 Sessions.selectAll()
@@ -238,8 +243,6 @@ fun App(processManager: ProcessManager) {
                 Projects.selectAll()
                         .map { Project.from(it) }
             }
-
-            usage = Claude.requestUsage().getOrDefault(null)
 
             LaunchedEffect(Unit) {
                 directoryMissing = processManager.directory?.let { !it.exists() } ?: false
@@ -347,6 +350,8 @@ fun App(processManager: ProcessManager) {
                                 isWorking = false
                                 isStreamingThought = false
                                 Toolkit.getDefaultToolkit().beep()
+
+                                usage = Claude.requestUsage().getOrDefault(null)
                             }
                             is Claude.RequestControl<*> -> {
                                 when (val request = event.request) {
