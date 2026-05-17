@@ -19,7 +19,6 @@ class ProcessManager(private val scope: CoroutineScope) {
     // TODO add buddy
     // TODO support plugins
     // TODO show pending changes
-    // TODO limit usages
     // TODO tables dont render fully
     fun start(vararg command: String): Boolean {
         val cwd = this.directory ?: File(System.getProperty("java.io.tmpdir"))

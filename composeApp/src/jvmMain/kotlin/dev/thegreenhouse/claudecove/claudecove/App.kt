@@ -985,6 +985,10 @@ fun UsageRing(
     }
     val trackColor = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.15f)
     val labelColor = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.75f)
+    val text = when {
+        utilization == 0f -> "$label: ${utilization.toInt()}%"
+        else -> "$label: ${utilization.toInt()}% resets at $resetsAt"
+    }
 
     TooltipArea(
         tooltip = {
@@ -994,7 +998,7 @@ fun UsageRing(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
             ) {
                 Text(
-                    text = "$label: ${utilization.toInt()}% resets at $resetsAt",
+                    text = text,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
